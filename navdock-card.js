@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.1.0';
+const ND_VERSION = '1.1.1';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -161,7 +161,7 @@ class NavDockCard extends HTMLElement {
       button { font:inherit; }
       .spacer { height:1px; }
       .stack { position:fixed; z-index:6; left:50%; bottom:${bottom}px; width:min(calc(100vw - 24px),${maxWidth}px); transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:1px solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 12px 34px rgba(0,0,0,.2)); backdrop-filter:blur(18px) saturate(145%); -webkit-backdrop-filter:blur(18px) saturate(145%); }
+      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:1px solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
       .dock { min-height:68px; border-radius:34px; padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
       .tab { min-width:0; flex:1 1 0; height:56px; padding:5px 4px; border:0; border-radius:28px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
       .tab:active { transform:scale(.94); }
@@ -197,7 +197,7 @@ class NavDockCard extends HTMLElement {
       .large-controls .primary { width:58px; height:58px; }
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
-      .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.2); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); cursor:default; animation:nd-fade .2s ease; }
+      .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
       @keyframes nd-fade { from { opacity:0; } }
@@ -254,7 +254,7 @@ class NavDockCard extends HTMLElement {
 
   _playButton(entity, large) {
     const icon = entity.state === 'playing' ? 'mdi:pause' : 'mdi:play';
-    return `<button class="icon-btn primary ${large ? 'large' : ''}" data-service="media_play_pause" aria-label="Wiedergabe"><ha-icon icon="${icon}"></ha-icon></button>`;
+    return `<button class="icon-btn primary ${large ? 'large' : ''}" data-service="toggle_playback" aria-label="Wiedergabe"><ha-icon icon="${icon}"></ha-icon></button>`;
   }
 
   _expandedTemplate(entity) {
@@ -280,8 +280,11 @@ class NavDockCard extends HTMLElement {
   _call(service, data = {}) {
     const entity = this._activeMedia;
     if (!entity) return;
-    Promise.resolve(this._hass.callService('media_player', service, { entity_id: entity.entity_id, ...data }))
-      .catch((error) => console.warn('[NavDock] media service failed', service, error));
+    const resolvedService = service === 'toggle_playback'
+      ? (entity.state === 'playing' ? 'media_pause' : 'media_play')
+      : service;
+    Promise.resolve(this._hass.callService('media_player', resolvedService, { entity_id: entity.entity_id, ...data }))
+      .catch((error) => console.warn('[NavDock] media service failed', resolvedService, error));
   }
 
   _bindEvents() {
@@ -323,7 +326,7 @@ class NavDockCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('.live-title').forEach((node) => { node.textContent = title; });
     this.shadowRoot.querySelectorAll('.live-subtitle').forEach((node) => { node.textContent = subtitle; });
     const playIcon = entity.state === 'playing' ? 'mdi:pause' : 'mdi:play';
-    this.shadowRoot.querySelectorAll('[data-service="media_play_pause"] ha-icon').forEach((node) => node.setAttribute('icon', playIcon));
+    this.shadowRoot.querySelectorAll('[data-service="toggle_playback"] ha-icon').forEach((node) => node.setAttribute('icon', playIcon));
   }
 }
 

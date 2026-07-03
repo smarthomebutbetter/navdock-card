@@ -43,6 +43,10 @@ Ohne manuell gesetzte Avatar-URL verwendet NavDock automatisch das Bild der
 verknüpft ist. Farben, Flächen, Text und Schatten werden aus dem aktiven
 Home-Assistant-Theme übernommen.
 
+Play/Pause verwendet getrennte `media_play`- und `media_pause`-Dienste, damit
+auch Player funktionieren, die den kombinierten `media_play_pause`-Befehl
+wegen Gerätebeschränkungen ablehnen.
+
 ## Vollständiges Beispiel
 
 ```yaml
