@@ -8,10 +8,10 @@ kompakte Media-Zeile öffnet den erweiterten Player direkt oberhalb der Dock.
 
 ### HACS (empfohlen)
 
-[![Repository in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=smarthomebutbetter&repository=navdock&category=plugin)
+[![Repository in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=smarthomebutbetter&repository=navdock-card&category=plugin)
 
 Oder manuell in HACS: **Drei-Punkte-Menü → Benutzerdefinierte Repositories**,
-`https://github.com/smarthomebutbetter/navdock` eintragen und als Kategorie
+`https://github.com/smarthomebutbetter/navdock-card` eintragen und als Kategorie
 **Dashboard** auswählen. Danach **NavDock Card** herunterladen. HACS installiert
 die JavaScript-Datei und registriert die Dashboard-Ressource automatisch.
 
@@ -21,8 +21,8 @@ Home-Assistant-App neu starten. Anschließend im visuellen Karteneditor
 
 ### Manuell
 
-1. `navdock.js` nach `/config/www/navdock.js` kopieren.
-2. Unter **Einstellungen → Dashboards → Ressourcen** `/local/navdock.js`
+1. `navdock-card.js` nach `/config/www/navdock-card.js` kopieren.
+2. Unter **Einstellungen → Dashboards → Ressourcen** `/local/navdock-card.js`
    als **JavaScript-Modul** anlegen.
 3. Browser beziehungsweise Companion-App neu laden.
 
