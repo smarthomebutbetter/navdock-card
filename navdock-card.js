@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.2.0';
+const ND_VERSION = '1.3.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -46,8 +46,14 @@ class NavDockCard extends HTMLElement {
       media_players: media ? [media] : [],
       expanded_player: true,
       profile_enabled: true,
+      profile_panel_enabled: true,
       profile_label: 'Profil',
       profile_path: '/profile',
+      profile_show_user: true,
+      profile_show_system: true,
+      profile_show_connection: true,
+      profile_show_device: true,
+      profile_entities: [],
     };
   }
 
@@ -55,6 +61,7 @@ class NavDockCard extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this._expanded = false;
+    this._profileOpen = false;
     this._hass = null;
     this._positionTimer = null;
     this._onLocation = () => this._render();
@@ -74,8 +81,14 @@ class NavDockCard extends HTMLElement {
       media_players: [],
       expanded_player: true,
       profile_enabled: true,
+      profile_panel_enabled: true,
       profile_label: 'Profil',
       profile_path: '/profile',
+      profile_show_user: true,
+      profile_show_system: true,
+      profile_show_connection: true,
+      profile_show_device: true,
+      profile_entities: [],
       width: 520,
       bottom: 18,
       height: 68,
@@ -91,7 +104,8 @@ class NavDockCard extends HTMLElement {
     const media = this._getActiveMedia();
     const signature = this._mediaSignature(media);
     const profileSignature = JSON.stringify(this._getProfileData());
-    if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || profileSignature !== this._lastProfileSignature) {
+    const profileEntitiesSignature = this._profileEntitiesSignature();
+    if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || profileSignature !== this._lastProfileSignature || (this._profileOpen && profileEntitiesSignature !== this._lastProfileEntitiesSignature)) {
       this._render();
     } else {
       this._activeMedia = media;
@@ -132,6 +146,7 @@ class NavDockCard extends HTMLElement {
     if (!this._activeMedia) this._expanded = false;
     this._lastMediaSignature = this._mediaSignature(this._activeMedia);
     this._lastProfileSignature = JSON.stringify(this._getProfileData());
+    this._lastProfileEntitiesSignature = this._profileEntitiesSignature();
 
     const media = this._activeMedia;
     const tabs = Array.isArray(this._config.tabs) ? this._config.tabs : [];
@@ -151,10 +166,11 @@ class NavDockCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
-      ${this._expanded && media ? '<button class="scrim" aria-label="Player schließen"></button>' : ''}
+      ${this._expanded || this._profileOpen ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
       <section class="stack ${this._config.show_labels === false ? 'hide-labels' : ''} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:${ndEsc(accent)}">
+        ${this._profileOpen ? this._profilePanelTemplate() : ''}
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
-        ${mediaVisible && !this._expanded ? this._compactTemplate(media) : ''}
+        ${mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
         <nav class="dock" aria-label="Dashboard Navigation">
           ${tabs.map((tab, index) => this._tabTemplate(tab, index)).join('')}
           ${profileEnabled ? this._profileTemplate() : ''}
@@ -171,8 +187,8 @@ class NavDockCard extends HTMLElement {
       button { font:inherit; }
       .spacer { height:1px; }
       .stack { position:fixed; z-index:6; left:50%; bottom:${bottom}px; width:min(calc(100vw - 24px),${maxWidth}px); transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
-      .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded{box-shadow:none}
+      .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
+      .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
       .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
       .tab { min-width:0; flex:1 1 0; height:calc(var(--nd-height) - 12px); padding:5px 4px; border:0; border-radius:999px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
       .tab:active { transform:scale(.94); }
@@ -209,6 +225,7 @@ class NavDockCard extends HTMLElement {
       .large-controls .primary { width:58px; height:58px; }
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
+      .profile-panel{border-radius:var(--nd-radius);padding:18px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-head{display:grid;grid-template-columns:58px 1fr 40px;gap:13px;align-items:center;margin-bottom:15px}.profile-big-avatar{width:58px;height:58px;border-radius:20px;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft)}.profile-big-avatar img{width:100%;height:100%;object-fit:cover}.profile-big-avatar ha-icon{width:30px;height:30px;color:var(--nd-accent)}.profile-name{font-size:18px;font-weight:780}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:4px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.info-tile{min-width:0;padding:13px;border-radius:20px;background:var(--nd-surface-soft)}.info-icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface)}.info-icon ha-icon{width:20px}.info-label{margin-top:9px;font-size:11px;color:var(--secondary-text-color)}.info-value{margin-top:3px;font-size:13px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-entities{display:grid;gap:7px;margin-top:12px}.profile-entity{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 12px;border:0;border-radius:18px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent)}.entity-name{font-size:13px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-state{font-size:12px;font-weight:720;color:var(--nd-accent)}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
@@ -228,7 +245,7 @@ class NavDockCard extends HTMLElement {
   }
 
   _profileTemplate() {
-    const active = location.pathname.startsWith(this._config.profile_path || '/profile');
+    const active = this._profileOpen || location.pathname.startsWith(this._config.profile_path || '/profile');
     const { picture, userName } = this._getProfileData();
     return `<button class="tab profile ${active ? 'active' : ''}" data-profile title="${ndEsc(userName)}">
       <span class="avatar">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span>
@@ -243,6 +260,39 @@ class NavDockCard extends HTMLElement {
     const picture = this._config.profile_avatar || person?.attributes?.entity_picture || user.picture || user.image;
     const userName = user.name || this._config.profile_label || 'Profil';
     return { picture: picture || '', userName, person: person?.entity_id || '', userId: user.id || '' };
+  }
+
+  _profileEntitiesSignature() {
+    return (this._config.profile_entities || []).map((id) => {
+      const entity = this._hass?.states?.[id];
+      return entity ? [id, entity.state, entity.attributes?.friendly_name, entity.attributes?.icon] : [id, null];
+    }).flat().join('|');
+  }
+
+  _profilePanelTemplate() {
+    const { picture, userName } = this._getProfileData();
+    const user = this._hass.user || {};
+    const tiles = [];
+    if (this._config.profile_show_user !== false) tiles.push(this._infoTile('mdi:account-key', 'Benutzer', user.is_owner ? 'Eigentümer' : (user.is_admin ? 'Administrator' : 'Benutzer')));
+    if (this._config.profile_show_system !== false) tiles.push(this._infoTile('mdi:home-assistant', this._hass.config?.location_name || 'Home Assistant', `Version ${this._hass.config?.version || '–'}`));
+    if (this._config.profile_show_connection !== false) tiles.push(this._infoTile(navigator.onLine ? 'mdi:lan-connect' : 'mdi:lan-disconnect', 'Verbindung', navigator.onLine ? 'Online' : 'Offline'));
+    if (this._config.profile_show_device !== false) {
+      const device = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'Apple Mobil' : /Windows/i.test(navigator.userAgent) ? 'Windows' : /Mac/i.test(navigator.userAgent) ? 'macOS' : 'Browser';
+      tiles.push(this._infoTile('mdi:devices', 'Dieses Gerät', `${device} · ${window.innerWidth}×${window.innerHeight}`));
+    }
+    const entities = (this._config.profile_entities || []).map((id) => this._hass.states[id]).filter(Boolean);
+    return `<article class="profile-panel" aria-label="Profilinformationen"><div class="profile-head"><span class="profile-big-avatar">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span><div><div class="profile-name">${ndEsc(userName)}</div><div class="profile-role">${ndEsc(this._hass.config?.location_name || 'Home Assistant')}</div></div><button class="icon-btn" data-close-profile aria-label="Schließen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div><div class="info-grid">${tiles.join('')}</div>${entities.length ? `<div class="profile-entities">${entities.map((entity) => this._profileEntityTemplate(entity)).join('')}</div>` : ''}</article>`;
+  }
+
+  _infoTile(icon, label, value) {
+    return `<div class="info-tile"><span class="info-icon"><ha-icon icon="${icon}"></ha-icon></span><div class="info-label">${ndEsc(label)}</div><div class="info-value">${ndEsc(value)}</div></div>`;
+  }
+
+  _profileEntityTemplate(entity) {
+    const icon = entity.attributes.icon || 'mdi:circle-outline';
+    const name = entity.attributes.friendly_name || entity.entity_id;
+    const state = this._hass.formatEntityState ? this._hass.formatEntityState(entity) : entity.state;
+    return `<button class="profile-entity" data-profile-entity="${ndEsc(entity.entity_id)}"><ha-icon icon="${ndEsc(icon)}"></ha-icon><span><div class="entity-name">${ndEsc(name)}</div><div class="entity-id">${ndEsc(entity.entity_id)}</div></span><span class="entity-state">${ndEsc(state)}</span></button>`;
   }
 
   _cover(entity, className = '') {
@@ -304,13 +354,21 @@ class NavDockCard extends HTMLElement {
       const tab = this._config.tabs[Number(button.dataset.tab)];
       if (tab?.path) ndNavigate(tab.path);
     }));
-    this.shadowRoot.querySelector('[data-profile]')?.addEventListener('click', () => ndNavigate(this._config.profile_path || '/profile'));
+    this.shadowRoot.querySelector('[data-profile]')?.addEventListener('click', () => {
+      if (this._config.profile_panel_enabled !== false) {
+        this._expanded = false;
+        this._profileOpen = !this._profileOpen;
+        this._render();
+      } else ndNavigate(this._config.profile_path || '/profile');
+    });
     this.shadowRoot.querySelector('[data-expand]')?.addEventListener('click', (event) => {
       if (event.target.closest('[data-service]')) return;
-      if (this._config.expanded_player !== false) { this._expanded = true; this._render(); }
+      if (this._config.expanded_player !== false) { this._profileOpen = false; this._expanded = true; this._render(); }
     });
-    this.shadowRoot.querySelector('.scrim')?.addEventListener('click', () => { this._expanded = false; this._render(); });
+    this.shadowRoot.querySelector('.scrim')?.addEventListener('click', () => { this._expanded = false; this._profileOpen = false; this._render(); });
     this.shadowRoot.querySelector('[data-collapse]')?.addEventListener('click', () => { this._expanded = false; this._render(); });
+    this.shadowRoot.querySelector('[data-close-profile]')?.addEventListener('click', () => { this._profileOpen = false; this._render(); });
+    this.shadowRoot.querySelectorAll('[data-profile-entity]').forEach((button) => button.addEventListener('click', () => ndFire(this, 'hass-more-info', { entityId: button.dataset.profileEntity })));
     this.shadowRoot.querySelectorAll('[data-service]').forEach((button) => button.addEventListener('click', (event) => {
       event.stopPropagation(); this._call(button.dataset.service);
     }));
@@ -347,7 +405,10 @@ class NavDockCardEditor extends HTMLElement {
   set hass(value) {
     this._hass = value;
     if (!this.shadowRoot.firstChild) this._render();
-    else this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = value; });
+    else {
+      this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = value; });
+      this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((picker) => { picker.hass = value; });
+    }
   }
   setConfig(config) { this._config = { tabs: ND_DEFAULT_TABS.map((tab) => ({ ...tab })), ...config }; this._render(); }
 
@@ -355,23 +416,25 @@ class NavDockCardEditor extends HTMLElement {
     if (!this._config || !this._hass) return;
     const c = this._config;
     const media = Array.isArray(c.media_players) ? c.media_players : [];
+    const profileEntities = Array.isArray(c.profile_entities) ? c.profile_entities : [];
     this.shadowRoot.innerHTML = `<style>
-      :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}*{box-sizing:border-box}.editor{display:grid;gap:16px;padding:4px}.group{padding:18px;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius,28px);background:var(--ha-card-background,var(--card-background-color))}.group-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}.group-icon{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.group-icon ha-icon{width:23px}.group-title{font-size:17px;font-weight:750}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.full{grid-column:1/-1}.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary-text-color)}input{width:100%;height:48px;padding:0 14px;color:var(--primary-text-color);background:var(--primary-background-color);border:1px solid var(--divider-color);border-radius:16px;outline:none}input:focus{border:2px solid var(--primary-color)}.toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{min-height:54px;padding:10px 13px;border-radius:18px;display:flex;align-items:center;gap:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:13px;font-weight:650}.toggle input{width:20px;height:20px;accent-color:var(--primary-color)}.segments{display:flex;gap:6px;padding:5px;border-radius:18px;background:var(--secondary-background-color)}.segments button{flex:1}.tabedit{padding:14px;margin-top:10px;border-radius:22px;background:var(--secondary-background-color)}.tabhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.tabnumber{display:flex;align-items:center;gap:9px;font-weight:750}.dragdot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--primary-background-color);color:var(--primary-color)}.actions{display:flex;gap:5px}button{min-height:38px;border:0;border-radius:14px;padding:8px 12px;color:var(--primary-text-color);background:var(--primary-background-color);cursor:pointer;font-weight:650}button.selected,.add{color:var(--text-primary-color,#fff);background:var(--primary-color)}.actions button{width:38px;padding:0}.add{width:100%;margin-top:12px;min-height:48px}.media-row{display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center;margin-top:9px}.media-row ha-entity-picker{width:100%}.empty{padding:14px;text-align:center;color:var(--secondary-text-color);font-size:12px;border:1px dashed var(--divider-color);border-radius:16px}@media(max-width:520px){.row,.toggle-grid{grid-template-columns:1fr}.full{grid-column:auto}.group{padding:14px}}
+      :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}*{box-sizing:border-box}.editor{display:grid;gap:16px;padding:4px}.group{padding:18px;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius,28px);background:var(--ha-card-background,var(--card-background-color))}.group-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}.group-icon{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.group-icon ha-icon{width:23px}.group-title{font-size:17px;font-weight:750}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.subhead{margin:16px 0 5px;font-size:13px;font-weight:750}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.full{grid-column:1/-1}.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary-text-color)}input{width:100%;height:48px;padding:0 14px;color:var(--primary-text-color);background:var(--primary-background-color);border:1px solid var(--divider-color);border-radius:16px;outline:none}input:focus{border:2px solid var(--primary-color)}ha-icon-picker{width:100%;min-height:48px}.toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{min-height:54px;padding:10px 13px;border-radius:18px;display:flex;align-items:center;gap:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:13px;font-weight:650}.toggle input{width:20px;height:20px;accent-color:var(--primary-color)}.segments{display:flex;gap:6px;padding:5px;border-radius:18px;background:var(--secondary-background-color)}.segments button{flex:1}.tabedit{padding:14px;margin-top:10px;border-radius:22px;background:var(--secondary-background-color)}.tabhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.tabnumber{display:flex;align-items:center;gap:9px;font-weight:750}.dragdot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--primary-background-color);color:var(--primary-color)}.actions{display:flex;gap:5px}button{min-height:38px;border:0;border-radius:14px;padding:8px 12px;color:var(--primary-text-color);background:var(--primary-background-color);cursor:pointer;font-weight:650}button.selected,.add{color:var(--text-primary-color,#fff);background:var(--primary-color)}.actions button{width:38px;padding:0}.add{width:100%;margin-top:12px;min-height:48px}.media-row{display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center;margin-top:9px}.media-row ha-entity-picker{width:100%}.empty{padding:14px;text-align:center;color:var(--secondary-text-color);font-size:12px;border:1px dashed var(--divider-color);border-radius:16px}@media(max-width:520px){.row,.toggle-grid{grid-template-columns:1fr}.full{grid-column:auto}.group{padding:14px}}
     </style>
     <div class="editor">
       ${this._group('mdi:dock-bottom','Dock & Form','Größe, Position und Theme-Verhalten',`<div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><div class="row"><label class="field">Maximale Breite<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" min="56" max="90" value="${ndEsc(c.height ?? 68)}"></label><label class="field">Eigener Radius (0 = Theme)<input data-key="radius" type="number" min="0" max="60" value="${ndEsc(c.radius ?? 0)}"></label><label class="field">Icon-Größe<input data-key="icon_size" type="number" min="18" max="36" value="${ndEsc(c.icon_size ?? 23)}"></label><label class="field">Text-Größe<input data-key="label_size" type="number" min="9" max="16" value="${ndEsc(c.label_size ?? 11)}"></label><label class="field full">Akzentfarbe (leer = Theme)<input data-key="accent_color" value="${ndEsc(c.accent_color || '')}" placeholder="var(--primary-color) oder #7d8fd3"></label></div><div class="toggle-grid"><label class="toggle"><input data-check="show_labels" type="checkbox" ${c.show_labels !== false ? 'checked' : ''}>Beschriftungen zeigen</label><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Theme-Schatten</label></div>`)}
       ${this._group('mdi:tab','Navigation','Tabs einfach anordnen und bearbeiten',`${(c.tabs || []).map((tab,index)=>this._tabEditor(tab,index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button>`)}
       ${this._group('mdi:play-circle','Media Player','Aktive Player werden automatisch ausgewählt',`<div class="toggle-grid"><label class="toggle"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Zeile</label><label class="toggle"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großer Player</label></div><div class="media-list">${media.length ? media.map((id,index)=>`<div class="media-row"><ha-entity-picker data-media-index="${index}" value="${ndEsc(id)}" include-domains="media_player"></ha-entity-picker><button data-remove-media="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Noch kein Media-Player ausgewählt</div>'}</div><button class="add" data-add-media>+ Media-Player</button>`)}
-      ${this._group('mdi:account-circle','Profil','Avatar des angemeldeten Benutzers',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil anzeigen</label></div><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Navigationspfad<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field full">Avatar überschreiben (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="Automatisch vom aktuellen Benutzer"></label></div>`)}
+      ${this._group('mdi:account-circle','Profilpanel','Kleine persönliche Info-Seite direkt über der Dock',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil-Tab anzeigen</label><label class="toggle"><input data-check="profile_panel_enabled" type="checkbox" ${c.profile_panel_enabled !== false ? 'checked' : ''}>Panel beim Tippen</label><label class="toggle"><input data-check="profile_show_user" type="checkbox" ${c.profile_show_user !== false ? 'checked' : ''}>Benutzerrolle</label><label class="toggle"><input data-check="profile_show_system" type="checkbox" ${c.profile_show_system !== false ? 'checked' : ''}>HA-Informationen</label><label class="toggle"><input data-check="profile_show_connection" type="checkbox" ${c.profile_show_connection !== false ? 'checked' : ''}>Verbindung</label><label class="toggle"><input data-check="profile_show_device" type="checkbox" ${c.profile_show_device !== false ? 'checked' : ''}>Dieses Gerät</label></div><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Pfad ohne Panel<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field full">Avatar überschreiben (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="Automatisch vom aktuellen Benutzer"></label></div><div class="subhead">Entitäten im Panel</div>${profileEntities.length ? profileEntities.map((id,index)=>`<div class="media-row"><ha-entity-picker data-profile-entity-index="${index}" value="${ndEsc(id)}"></ha-entity-picker><button data-remove-profile-entity="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Optional eigene Sensoren oder Geräte anzeigen</div>'}<button class="add" data-add-profile-entity>+ Entität</button>`)}
     </div>`;
-    this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = this._hass; picker.includeDomains = ['media_player']; });
+    this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = this._hass; if (picker.hasAttribute('data-media-index')) picker.includeDomains = ['media_player']; });
+    this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((picker) => { picker.hass = this._hass; });
     this._bind();
   }
 
   _group(icon, title, hint, content) { return `<section class="group"><div class="group-head"><span class="group-icon"><ha-icon icon="${icon}"></ha-icon></span><div><div class="group-title">${title}</div><div class="hint">${hint}</div></div></div>${content}</section>`; }
 
   _tabEditor(tab, index) {
-    return `<div class="tabedit" data-index="${index}"><div class="tabhead"><span class="tabnumber"><span class="dragdot">${index + 1}</span>${ndEsc(tab.label || 'Neuer Tab')}</span><span class="actions"><button data-up title="Nach oben">↑</button><button data-down title="Nach unten">↓</button><button data-delete title="Löschen">✕</button></span></div><div class="row"><label class="field">Name<input data-tab-key="label" value="${ndEsc(tab.label || '')}"></label><label class="field">Icon<input data-tab-key="icon" value="${ndEsc(tab.icon || '')}" placeholder="mdi:home-outline"></label><label class="field">Aktives Icon<input data-tab-key="active_icon" value="${ndEsc(tab.active_icon || '')}" placeholder="mdi:home"></label><label class="field">Navigationspfad<input data-tab-key="path" value="${ndEsc(tab.path || '')}" placeholder="/dashboard/view"></label></div></div>`;
+    return `<div class="tabedit" data-index="${index}"><div class="tabhead"><span class="tabnumber"><span class="dragdot">${index + 1}</span>${ndEsc(tab.label || 'Neuer Tab')}</span><span class="actions"><button data-up title="Nach oben">↑</button><button data-down title="Nach unten">↓</button><button data-delete title="Löschen">✕</button></span></div><div class="row"><label class="field">Name<input data-tab-key="label" value="${ndEsc(tab.label || '')}"></label><label class="field">Icon<ha-icon-picker data-tab-icon="icon" value="${ndEsc(tab.icon || '')}"></ha-icon-picker></label><label class="field">Aktives Icon<ha-icon-picker data-tab-icon="active_icon" value="${ndEsc(tab.active_icon || '')}"></ha-icon-picker></label><label class="field">Navigationspfad<input data-tab-key="path" value="${ndEsc(tab.path || '')}" placeholder="/dashboard/view"></label></div></div>`;
   }
 
   _emit(next) { this._config = next; ndFire(this, 'config-changed', { config: next }); }
@@ -384,9 +447,13 @@ class NavDockCardEditor extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-media-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const players = [...(this._config.media_players || [])]; players[Number(picker.dataset.mediaIndex)] = event.detail.value; this._emit({ ...this._config, media_players: players.filter(Boolean) }); }));
     this.shadowRoot.querySelectorAll('[data-remove-media]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeMedia); this._emit({ ...this._config, media_players: (this._config.media_players || []).filter((_,i)=>i!==index) }); this._render(); }));
     this.shadowRoot.querySelector('[data-add-media]')?.addEventListener('click', () => { this._emit({ ...this._config, media_players: [...(this._config.media_players || []), ''] }); this._render(); });
+    this.shadowRoot.querySelectorAll('[data-profile-entity-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const entities = [...(this._config.profile_entities || [])]; entities[Number(picker.dataset.profileEntityIndex)] = event.detail.value; this._emit({ ...this._config, profile_entities: entities.filter(Boolean) }); }));
+    this.shadowRoot.querySelectorAll('[data-remove-profile-entity]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeProfileEntity); this._emit({ ...this._config, profile_entities: (this._config.profile_entities || []).filter((_,i)=>i!==index) }); this._render(); }));
+    this.shadowRoot.querySelector('[data-add-profile-entity]')?.addEventListener('click', () => { this._emit({ ...this._config, profile_entities: [...(this._config.profile_entities || []), ''] }); this._render(); });
     this.shadowRoot.querySelectorAll('.tabedit').forEach((box) => {
       const index = Number(box.dataset.index);
       box.querySelectorAll('[data-tab-key]').forEach((input) => input.addEventListener('change', () => { const tabs = this._config.tabs.map((t) => ({ ...t })); tabs[index][input.dataset.tabKey] = input.value; this._emit({ ...this._config, tabs }); }));
+      box.querySelectorAll('[data-tab-icon]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const tabs = this._config.tabs.map((t) => ({ ...t })); tabs[index][picker.dataset.tabIcon] = event.detail.value; this._emit({ ...this._config, tabs }); }));
       box.querySelector('[data-delete]').addEventListener('click', () => { const tabs = this._config.tabs.filter((_, i) => i !== index); this._emit({ ...this._config, tabs }); this._render(); });
       box.querySelector('[data-up]').addEventListener('click', () => this._move(index, -1));
       box.querySelector('[data-down]').addEventListener('click', () => this._move(index, 1));

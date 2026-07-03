@@ -51,6 +51,12 @@ Play/Pause verwendet getrennte `media_play`- und `media_pause`-Dienste, damit
 auch Player funktionieren, die den kombinierten `media_play_pause`-Befehl
 wegen Gerätebeschränkungen ablehnen.
 
+Der Profil-Tab kann ein eigenes ausklappbares Panel öffnen. Im visuellen Editor
+lassen sich Benutzerrolle, Home-Assistant-Version, Verbindungsstatus,
+Browser-Gerät und zusätzliche frei gewählte Entitäten ein- oder ausblenden.
+Ein Tipp auf eine hinzugefügte Entität öffnet deren HA-Detaildialog. Die
+Navigation-Tabs besitzen native Icon-Picker für normales und aktives Icon.
+
 ## Vollständiges Beispiel
 
 ```yaml
