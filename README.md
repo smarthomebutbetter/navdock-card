@@ -38,6 +38,11 @@ Tabs, Reihenfolge, Icons, Navigationspfade, Media-Player, Profil-Avatar,
 Dock-Breite und Abstand zum unteren Rand lassen sich im visuellen Editor
 einstellen.
 
+Ohne manuell gesetzte Avatar-URL verwendet NavDock automatisch das Bild der
+`person`-Entität, die mit dem aktuell angemeldeten Home-Assistant-Benutzer
+verknüpft ist. Farben, Flächen, Text und Schatten werden aus dem aktiven
+Home-Assistant-Theme übernommen.
+
 ## Vollständiges Beispiel
 
 ```yaml

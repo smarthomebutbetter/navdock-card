@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.0.0';
+const ND_VERSION = '1.1.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -84,11 +84,17 @@ class NavDockCard extends HTMLElement {
   }
 
   set hass(value) {
-    const previous = this._activeMedia?.entity_id;
     this._hass = value;
-    const current = this._getActiveMedia()?.entity_id;
-    if (!this.shadowRoot.firstChild || previous !== current || this._expanded) this._render();
-    else this._updateLiveMedia();
+    const media = this._getActiveMedia();
+    const signature = this._mediaSignature(media);
+    const profileSignature = JSON.stringify(this._getProfileData());
+    if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || profileSignature !== this._lastProfileSignature) {
+      this._render();
+    } else {
+      this._activeMedia = media;
+      this._updateLiveMedia();
+      if (this._expanded) this._updatePosition();
+    }
   }
 
   getCardSize() { return 1; }
@@ -107,15 +113,22 @@ class NavDockCard extends HTMLElement {
       || null;
   }
 
-  _theme() {
-    const dark = Boolean(this._hass?.themes?.darkMode);
-    return dark ? 'dark' : 'light';
+  _mediaSignature(entity) {
+    if (!entity) return 'none';
+    const a = entity.attributes || {};
+    return JSON.stringify([
+      entity.entity_id, entity.state, a.media_title, a.media_artist,
+      a.media_series_title, a.app_name, a.source, a.entity_picture,
+      a.media_duration, a.volume_level, a.is_volume_muted,
+    ]);
   }
 
   _render() {
     if (!this._config || !this._hass) return;
     this._activeMedia = this._getActiveMedia();
     if (!this._activeMedia) this._expanded = false;
+    this._lastMediaSignature = this._mediaSignature(this._activeMedia);
+    this._lastProfileSignature = JSON.stringify(this._getProfileData());
 
     const media = this._activeMedia;
     const tabs = Array.isArray(this._config.tabs) ? this._config.tabs : [];
@@ -129,7 +142,7 @@ class NavDockCard extends HTMLElement {
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${this._expanded && media ? '<button class="scrim" aria-label="Player schließen"></button>' : ''}
-      <section class="stack ${this._theme()}" style="--media-offset:${mediaOffset}px">
+      <section class="stack" style="--media-offset:${mediaOffset}px">
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
         ${mediaVisible && !this._expanded ? this._compactTemplate(media) : ''}
         <nav class="dock" aria-label="Dashboard Navigation">
@@ -143,24 +156,24 @@ class NavDockCard extends HTMLElement {
 
   _styles(maxWidth, bottom) {
     return `
-      :host { display:block; min-height:1px; --nd-accent:var(--primary-color,#7d8fd3); font-family:var(--paper-font-body1_-_font-family,inherit); }
+      :host { display:block; min-height:1px; --nd-accent:var(--primary-color,#7d8fd3); --nd-surface:var(--ha-card-background,var(--card-background-color,var(--primary-background-color,#fff))); --nd-surface-soft:var(--secondary-background-color,var(--primary-background-color,#eee)); --nd-border:var(--divider-color,rgba(127,127,127,.24)); font-family:var(--paper-font-body1_-_font-family,inherit); }
       *, *::before, *::after { box-sizing:border-box; }
       button { font:inherit; }
       .spacer { height:1px; }
       .stack { position:fixed; z-index:6; left:50%; bottom:${bottom}px; width:min(calc(100vw - 24px),${maxWidth}px); transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:color-mix(in srgb,var(--ha-card-background,var(--card-background-color,#fff)) 88%,transparent); border:1px solid color-mix(in srgb,var(--divider-color) 52%,transparent); box-shadow:0 12px 34px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter:blur(18px) saturate(145%); -webkit-backdrop-filter:blur(18px) saturate(145%); }
+      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:1px solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 12px 34px rgba(0,0,0,.2)); backdrop-filter:blur(18px) saturate(145%); -webkit-backdrop-filter:blur(18px) saturate(145%); }
       .dock { min-height:68px; border-radius:34px; padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
       .tab { min-width:0; flex:1 1 0; height:56px; padding:5px 4px; border:0; border-radius:28px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
       .tab:active { transform:scale(.94); }
-      .tab.active { color:var(--nd-accent); background:color-mix(in srgb,var(--nd-accent) 22%,transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
+      .tab.active { color:var(--nd-accent); background:var(--nd-surface-soft); box-shadow:inset 0 0 0 1px var(--nd-border); }
       .tab ha-icon { width:23px; height:23px; }
       .tab span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:650; }
-      .profile .avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:color-mix(in srgb,var(--secondary-text-color) 18%,transparent); }
+      .profile .avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--nd-surface-soft); }
       .avatar img { width:100%; height:100%; object-fit:cover; }
       .avatar ha-icon { width:23px; height:23px; }
       .profile span { display:none; }
       .compact { min-height:68px; border-radius:34px; padding:7px 8px; display:grid; grid-template-columns:50px minmax(0,1fr) auto; align-items:center; gap:10px; cursor:pointer; animation:nd-in .22s ease-out; }
-      .cover { width:50px; height:50px; border-radius:17px; object-fit:cover; background:color-mix(in srgb,var(--secondary-text-color) 12%,transparent); }
+      .cover { width:50px; height:50px; border-radius:17px; object-fit:cover; background:var(--nd-surface-soft); }
       .cover.fallback { display:grid; place-items:center; }
       .cover.fallback ha-icon { width:27px; height:27px; color:var(--nd-accent); }
       .meta { min-width:0; text-align:left; }
@@ -169,7 +182,7 @@ class NavDockCard extends HTMLElement {
       .subtitle { margin-top:3px; color:var(--secondary-text-color); font-size:11px; font-weight:550; }
       .controls { display:flex; align-items:center; gap:2px; }
       .icon-btn { width:42px; height:42px; border:0; border-radius:50%; display:grid; place-items:center; cursor:pointer; color:var(--primary-text-color); background:transparent; }
-      .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px color-mix(in srgb,var(--nd-accent) 30%,transparent); }
+      .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px rgba(0,0,0,.18); }
       .icon-btn ha-icon { width:24px; height:24px; }
       .expanded { border-radius:30px; padding:18px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
       .expanded-head { display:grid; grid-template-columns:82px minmax(0,1fr) 40px; gap:14px; align-items:center; }
@@ -204,11 +217,20 @@ class NavDockCard extends HTMLElement {
 
   _profileTemplate() {
     const active = location.pathname.startsWith(this._config.profile_path || '/profile');
-    const picture = this._config.profile_avatar || this._hass.user?.picture;
-    return `<button class="tab profile ${active ? 'active' : ''}" data-profile title="${ndEsc(this._config.profile_label || 'Profil')}">
-      <span class="avatar">${picture ? `<img src="${ndEsc(picture)}" alt="">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span>
+    const { picture, userName } = this._getProfileData();
+    return `<button class="tab profile ${active ? 'active' : ''}" data-profile title="${ndEsc(userName)}">
+      <span class="avatar">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span>
       <span>${ndEsc(this._config.profile_label || 'Profil')}</span>
     </button>`;
+  }
+
+  _getProfileData() {
+    const user = this._hass.user || {};
+    const person = Object.values(this._hass.states || {}).find((entity) =>
+      entity.entity_id.startsWith('person.') && entity.attributes?.user_id === user.id);
+    const picture = this._config.profile_avatar || person?.attributes?.entity_picture || user.picture || user.image;
+    const userName = user.name || this._config.profile_label || 'Profil';
+    return { picture: picture || '', userName, person: person?.entity_id || '', userId: user.id || '' };
   }
 
   _cover(entity, className = '') {
@@ -258,7 +280,8 @@ class NavDockCard extends HTMLElement {
   _call(service, data = {}) {
     const entity = this._activeMedia;
     if (!entity) return;
-    this._hass.callService('media_player', service, { entity_id: entity.entity_id, ...data });
+    Promise.resolve(this._hass.callService('media_player', service, { entity_id: entity.entity_id, ...data }))
+      .catch((error) => console.warn('[NavDock] media service failed', service, error));
   }
 
   _bindEvents() {
@@ -299,6 +322,8 @@ class NavDockCard extends HTMLElement {
     const subtitle = entity.attributes.media_artist || entity.attributes.media_series_title || entity.attributes.app_name || entity.attributes.source || '';
     this.shadowRoot.querySelectorAll('.live-title').forEach((node) => { node.textContent = title; });
     this.shadowRoot.querySelectorAll('.live-subtitle').forEach((node) => { node.textContent = subtitle; });
+    const playIcon = entity.state === 'playing' ? 'mdi:pause' : 'mdi:play';
+    this.shadowRoot.querySelectorAll('[data-service="media_play_pause"] ha-icon').forEach((node) => node.setAttribute('icon', playIcon));
   }
 }
 
