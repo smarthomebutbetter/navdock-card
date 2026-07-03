@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.1.1';
+const ND_VERSION = '1.2.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -78,6 +78,9 @@ class NavDockCard extends HTMLElement {
       profile_path: '/profile',
       width: 520,
       bottom: 18,
+      height: 68,
+      show_labels: true,
+      shadow: true,
       ...config,
     };
     this._render();
@@ -136,13 +139,20 @@ class NavDockCard extends HTMLElement {
     const mediaVisible = this._config.media_enabled !== false && Boolean(media);
     const maxWidth = Math.max(300, Number(this._config.width) || 520);
     const bottom = Math.max(4, Number(this._config.bottom) || 18);
+    const height = Math.max(56, Math.min(90, Number(this._config.height) || 68));
+    const iconSize = Math.max(18, Math.min(36, Number(this._config.icon_size) || 23));
+    const labelSize = Math.max(9, Math.min(16, Number(this._config.label_size) || 11));
+    const radius = Number(this._config.radius) > 0
+      ? `${Math.min(60, Number(this._config.radius))}px`
+      : 'var(--ha-card-border-radius,var(--card-border-radius,28px))';
+    const accent = this._config.accent_color || 'var(--primary-color,#7d8fd3)';
     const mediaOffset = 78;
 
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${this._expanded && media ? '<button class="scrim" aria-label="Player schließen"></button>' : ''}
-      <section class="stack" style="--media-offset:${mediaOffset}px">
+      <section class="stack ${this._config.show_labels === false ? 'hide-labels' : ''} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:${ndEsc(accent)}">
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
         ${mediaVisible && !this._expanded ? this._compactTemplate(media) : ''}
         <nav class="dock" aria-label="Dashboard Navigation">
@@ -156,23 +166,25 @@ class NavDockCard extends HTMLElement {
 
   _styles(maxWidth, bottom) {
     return `
-      :host { display:block; min-height:1px; --nd-accent:var(--primary-color,#7d8fd3); --nd-surface:var(--ha-card-background,var(--card-background-color,var(--primary-background-color,#fff))); --nd-surface-soft:var(--secondary-background-color,var(--primary-background-color,#eee)); --nd-border:var(--divider-color,rgba(127,127,127,.24)); font-family:var(--paper-font-body1_-_font-family,inherit); }
+      :host { display:block; min-height:1px; --nd-surface:var(--ha-card-background,var(--card-background-color,var(--primary-background-color,#fff))); --nd-surface-soft:var(--secondary-background-color,var(--primary-background-color,#eee)); --nd-border:var(--divider-color,rgba(127,127,127,.24)); font-family:var(--paper-font-body1_-_font-family,inherit); }
       *, *::before, *::after { box-sizing:border-box; }
       button { font:inherit; }
       .spacer { height:1px; }
       .stack { position:fixed; z-index:6; left:50%; bottom:${bottom}px; width:min(calc(100vw - 24px),${maxWidth}px); transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:1px solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
-      .dock { min-height:68px; border-radius:34px; padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
-      .tab { min-width:0; flex:1 1 0; height:56px; padding:5px 4px; border:0; border-radius:28px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
+      .dock,.compact,.expanded { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
+      .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded{box-shadow:none}
+      .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
+      .tab { min-width:0; flex:1 1 0; height:calc(var(--nd-height) - 12px); padding:5px 4px; border:0; border-radius:999px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
       .tab:active { transform:scale(.94); }
       .tab.active { color:var(--nd-accent); background:var(--nd-surface-soft); box-shadow:inset 0 0 0 1px var(--nd-border); }
-      .tab ha-icon { width:23px; height:23px; }
-      .tab span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:650; }
+      .tab ha-icon { width:var(--nd-icon-size); height:var(--nd-icon-size); }
+      .tab span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--nd-label-size); font-weight:650; }
+      .hide-labels .tab>span:not(.avatar){display:none}.hide-labels .tab{gap:0}
       .profile .avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--nd-surface-soft); }
       .avatar img { width:100%; height:100%; object-fit:cover; }
       .avatar ha-icon { width:23px; height:23px; }
       .profile span { display:none; }
-      .compact { min-height:68px; border-radius:34px; padding:7px 8px; display:grid; grid-template-columns:50px minmax(0,1fr) auto; align-items:center; gap:10px; cursor:pointer; animation:nd-in .22s ease-out; }
+      .compact { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:7px 8px; display:grid; grid-template-columns:50px minmax(0,1fr) auto; align-items:center; gap:10px; cursor:pointer; animation:nd-in .22s ease-out; }
       .cover { width:50px; height:50px; border-radius:17px; object-fit:cover; background:var(--nd-surface-soft); }
       .cover.fallback { display:grid; place-items:center; }
       .cover.fallback ha-icon { width:27px; height:27px; color:var(--nd-accent); }
@@ -184,7 +196,7 @@ class NavDockCard extends HTMLElement {
       .icon-btn { width:42px; height:42px; border:0; border-radius:50%; display:grid; place-items:center; cursor:pointer; color:var(--primary-text-color); background:transparent; }
       .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px rgba(0,0,0,.18); }
       .icon-btn ha-icon { width:24px; height:24px; }
-      .expanded { border-radius:30px; padding:18px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
+      .expanded { border-radius:var(--nd-radius); padding:18px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
       .expanded-head { display:grid; grid-template-columns:82px minmax(0,1fr) 40px; gap:14px; align-items:center; }
       .expanded .cover { width:82px; height:82px; border-radius:22px; }
       .expanded .title { font-size:17px; }
@@ -332,7 +344,11 @@ class NavDockCard extends HTMLElement {
 
 class NavDockCardEditor extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: 'open' }); }
-  set hass(value) { this._hass = value; this._render(); }
+  set hass(value) {
+    this._hass = value;
+    if (!this.shadowRoot.firstChild) this._render();
+    else this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = value; });
+  }
   setConfig(config) { this._config = { tabs: ND_DEFAULT_TABS.map((tab) => ({ ...tab })), ...config }; this._render(); }
 
   _render() {
@@ -340,17 +356,22 @@ class NavDockCardEditor extends HTMLElement {
     const c = this._config;
     const media = Array.isArray(c.media_players) ? c.media_players : [];
     this.shadowRoot.innerHTML = `<style>
-      :host{display:block;color:var(--primary-text-color)}*{box-sizing:border-box}.section{padding:14px 0;border-bottom:1px solid var(--divider-color)}h3{font-size:15px;margin:0 0 12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:9px 0}.full{grid-column:1/-1}label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--secondary-text-color)}input,select{width:100%;height:40px;padding:0 10px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:10px}.check{flex-direction:row;align-items:center;gap:9px}.check input{width:18px;height:18px}.tabedit{padding:10px;margin:8px 0;border:1px solid var(--divider-color);border-radius:14px}.tabhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.actions{display:flex;gap:4px}button{border:0;border-radius:9px;padding:8px 10px;color:var(--primary-text-color);background:var(--secondary-background-color);cursor:pointer}.add{width:100%;margin-top:8px;color:var(--primary-color)}@media(max-width:500px){.row{grid-template-columns:1fr}}
+      :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}*{box-sizing:border-box}.editor{display:grid;gap:16px;padding:4px}.group{padding:18px;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius,28px);background:var(--ha-card-background,var(--card-background-color))}.group-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}.group-icon{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.group-icon ha-icon{width:23px}.group-title{font-size:17px;font-weight:750}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.full{grid-column:1/-1}.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary-text-color)}input{width:100%;height:48px;padding:0 14px;color:var(--primary-text-color);background:var(--primary-background-color);border:1px solid var(--divider-color);border-radius:16px;outline:none}input:focus{border:2px solid var(--primary-color)}.toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{min-height:54px;padding:10px 13px;border-radius:18px;display:flex;align-items:center;gap:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:13px;font-weight:650}.toggle input{width:20px;height:20px;accent-color:var(--primary-color)}.segments{display:flex;gap:6px;padding:5px;border-radius:18px;background:var(--secondary-background-color)}.segments button{flex:1}.tabedit{padding:14px;margin-top:10px;border-radius:22px;background:var(--secondary-background-color)}.tabhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.tabnumber{display:flex;align-items:center;gap:9px;font-weight:750}.dragdot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--primary-background-color);color:var(--primary-color)}.actions{display:flex;gap:5px}button{min-height:38px;border:0;border-radius:14px;padding:8px 12px;color:var(--primary-text-color);background:var(--primary-background-color);cursor:pointer;font-weight:650}button.selected,.add{color:var(--text-primary-color,#fff);background:var(--primary-color)}.actions button{width:38px;padding:0}.add{width:100%;margin-top:12px;min-height:48px}.media-row{display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center;margin-top:9px}.media-row ha-entity-picker{width:100%}.empty{padding:14px;text-align:center;color:var(--secondary-text-color);font-size:12px;border:1px dashed var(--divider-color);border-radius:16px}@media(max-width:520px){.row,.toggle-grid{grid-template-columns:1fr}.full{grid-column:auto}.group{padding:14px}}
     </style>
-    <div class="section"><h3>Dock</h3><div class="row"><label>Maximale Breite (px)<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label>Abstand unten (px)<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label></div></div>
-    <div class="section"><h3>Tabs</h3>${(c.tabs || []).map((tab, index) => this._tabEditor(tab, index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button></div>
-    <div class="section"><h3>Media Player</h3><div class="row"><label class="check"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Zeile anzeigen</label><label class="check"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großen Player aktivieren</label></div><label>Media-Player (mehrere mit Komma trennen)<input data-media value="${ndEsc(media.join(', '))}" placeholder="media_player.wohnzimmer"></label></div>
-    <div class="section"><h3>Profil</h3><div class="row"><label class="check full"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil-Tab anzeigen</label><label>Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label>Pfad<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="full">Avatar-URL (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="/local/avatar.png"></label></div></div>`;
+    <div class="editor">
+      ${this._group('mdi:dock-bottom','Dock & Form','Größe, Position und Theme-Verhalten',`<div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><div class="row"><label class="field">Maximale Breite<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" min="56" max="90" value="${ndEsc(c.height ?? 68)}"></label><label class="field">Eigener Radius (0 = Theme)<input data-key="radius" type="number" min="0" max="60" value="${ndEsc(c.radius ?? 0)}"></label><label class="field">Icon-Größe<input data-key="icon_size" type="number" min="18" max="36" value="${ndEsc(c.icon_size ?? 23)}"></label><label class="field">Text-Größe<input data-key="label_size" type="number" min="9" max="16" value="${ndEsc(c.label_size ?? 11)}"></label><label class="field full">Akzentfarbe (leer = Theme)<input data-key="accent_color" value="${ndEsc(c.accent_color || '')}" placeholder="var(--primary-color) oder #7d8fd3"></label></div><div class="toggle-grid"><label class="toggle"><input data-check="show_labels" type="checkbox" ${c.show_labels !== false ? 'checked' : ''}>Beschriftungen zeigen</label><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Theme-Schatten</label></div>`)}
+      ${this._group('mdi:tab','Navigation','Tabs einfach anordnen und bearbeiten',`${(c.tabs || []).map((tab,index)=>this._tabEditor(tab,index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button>`)}
+      ${this._group('mdi:play-circle','Media Player','Aktive Player werden automatisch ausgewählt',`<div class="toggle-grid"><label class="toggle"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Zeile</label><label class="toggle"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großer Player</label></div><div class="media-list">${media.length ? media.map((id,index)=>`<div class="media-row"><ha-entity-picker data-media-index="${index}" value="${ndEsc(id)}" include-domains="media_player"></ha-entity-picker><button data-remove-media="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Noch kein Media-Player ausgewählt</div>'}</div><button class="add" data-add-media>+ Media-Player</button>`)}
+      ${this._group('mdi:account-circle','Profil','Avatar des angemeldeten Benutzers',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil anzeigen</label></div><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Navigationspfad<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field full">Avatar überschreiben (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="Automatisch vom aktuellen Benutzer"></label></div>`)}
+    </div>`;
+    this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = this._hass; picker.includeDomains = ['media_player']; });
     this._bind();
   }
 
+  _group(icon, title, hint, content) { return `<section class="group"><div class="group-head"><span class="group-icon"><ha-icon icon="${icon}"></ha-icon></span><div><div class="group-title">${title}</div><div class="hint">${hint}</div></div></div>${content}</section>`; }
+
   _tabEditor(tab, index) {
-    return `<div class="tabedit" data-index="${index}"><div class="tabhead"><strong>Tab ${index + 1}</strong><span class="actions"><button data-up title="Nach oben">↑</button><button data-down title="Nach unten">↓</button><button data-delete title="Löschen">✕</button></span></div><div class="row"><label>Name<input data-tab-key="label" value="${ndEsc(tab.label || '')}"></label><label>Icon<input data-tab-key="icon" value="${ndEsc(tab.icon || '')}" placeholder="mdi:home"></label><label class="full">Navigationspfad<input data-tab-key="path" value="${ndEsc(tab.path || '')}" placeholder="/dashboard-name/view"></label></div></div>`;
+    return `<div class="tabedit" data-index="${index}"><div class="tabhead"><span class="tabnumber"><span class="dragdot">${index + 1}</span>${ndEsc(tab.label || 'Neuer Tab')}</span><span class="actions"><button data-up title="Nach oben">↑</button><button data-down title="Nach unten">↓</button><button data-delete title="Löschen">✕</button></span></div><div class="row"><label class="field">Name<input data-tab-key="label" value="${ndEsc(tab.label || '')}"></label><label class="field">Icon<input data-tab-key="icon" value="${ndEsc(tab.icon || '')}" placeholder="mdi:home-outline"></label><label class="field">Aktives Icon<input data-tab-key="active_icon" value="${ndEsc(tab.active_icon || '')}" placeholder="mdi:home"></label><label class="field">Navigationspfad<input data-tab-key="path" value="${ndEsc(tab.path || '')}" placeholder="/dashboard/view"></label></div></div>`;
   }
 
   _emit(next) { this._config = next; ndFire(this, 'config-changed', { config: next }); }
@@ -359,7 +380,10 @@ class NavDockCardEditor extends HTMLElement {
       const numeric = input.type === 'number'; this._emit({ ...this._config, [input.dataset.key]: numeric ? Number(input.value) : input.value });
     }));
     this.shadowRoot.querySelectorAll('[data-check]').forEach((input) => input.addEventListener('change', () => this._emit({ ...this._config, [input.dataset.check]: input.checked })));
-    this.shadowRoot.querySelector('[data-media]')?.addEventListener('change', (event) => this._emit({ ...this._config, media_players: event.target.value.split(',').map((v) => v.trim()).filter(Boolean) }));
+    this.shadowRoot.querySelectorAll('[data-radius]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, radius: Number(button.dataset.radius) }); this._render(); }));
+    this.shadowRoot.querySelectorAll('[data-media-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const players = [...(this._config.media_players || [])]; players[Number(picker.dataset.mediaIndex)] = event.detail.value; this._emit({ ...this._config, media_players: players.filter(Boolean) }); }));
+    this.shadowRoot.querySelectorAll('[data-remove-media]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeMedia); this._emit({ ...this._config, media_players: (this._config.media_players || []).filter((_,i)=>i!==index) }); this._render(); }));
+    this.shadowRoot.querySelector('[data-add-media]')?.addEventListener('click', () => { this._emit({ ...this._config, media_players: [...(this._config.media_players || []), ''] }); this._render(); });
     this.shadowRoot.querySelectorAll('.tabedit').forEach((box) => {
       const index = Number(box.dataset.index);
       box.querySelectorAll('[data-tab-key]').forEach((input) => input.addEventListener('change', () => { const tabs = this._config.tabs.map((t) => ({ ...t })); tabs[index][input.dataset.tabKey] = input.value; this._emit({ ...this._config, tabs }); }));
