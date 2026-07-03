@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.6.0';
+const ND_VERSION = '1.7.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -43,6 +43,7 @@ class NavDockCard extends HTMLElement {
     return {
       tabs: ND_DEFAULT_TABS.map((tab) => ({ ...tab })),
       media_enabled: true,
+      media_auto_discover: false,
       media_players: media ? [media] : [],
       expanded_player: true,
       breakpoint: 768,
@@ -67,6 +68,7 @@ class NavDockCard extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this._expanded = false;
     this._profileOpen = false;
+    this._mediaIndex = 0;
     this._hass = null;
     this._positionTimer = null;
     this._onLocation = () => this._render();
@@ -89,6 +91,7 @@ class NavDockCard extends HTMLElement {
     this._config = {
       tabs: ND_DEFAULT_TABS,
       media_enabled: true,
+      media_auto_discover: false,
       media_players: [],
       expanded_player: true,
       breakpoint: 768,
@@ -120,7 +123,7 @@ class NavDockCard extends HTMLElement {
   set hass(value) {
     this._hass = value;
     const media = this._getActiveMedia();
-    const signature = this._mediaSignature(media);
+    const signature = this._mediaCollectionSignature();
     const profileSignature = JSON.stringify(this._getProfileData());
     const profileEntitiesSignature = this._profileEntitiesSignature();
     if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || profileSignature !== this._lastProfileSignature || (this._profileOpen && profileEntitiesSignature !== this._lastProfileEntitiesSignature)) {
@@ -149,16 +152,26 @@ class NavDockCard extends HTMLElement {
 
   _getMediaEntities() {
     if (!this._hass) return [];
-    return (this._config.media_players || [])
+    const configured = this._config.media_players || [];
+    const discovered = this._config.media_auto_discover
+      ? Object.keys(this._hass.states).filter((id) => id.startsWith('media_player.'))
+      : [];
+    return [...new Set([...configured, ...discovered])]
       .map((id) => this._hass.states[id])
       .filter(Boolean);
   }
 
+  _getActiveMediaEntities() {
+    return this._getMediaEntities()
+      .filter((entity) => ND_ACTIVE_STATES.has(entity.state))
+      .sort((a, b) => Number(b.state === 'playing') - Number(a.state === 'playing'));
+  }
+
   _getActiveMedia() {
-    const entities = this._getMediaEntities();
-    return entities.find((entity) => entity.state === 'playing')
-      || entities.find((entity) => ND_ACTIVE_STATES.has(entity.state))
-      || null;
+    const entities = this._getActiveMediaEntities();
+    if (!entities.length) { this._mediaIndex = 0; return null; }
+    this._mediaIndex = Math.max(0, Math.min(this._mediaIndex, entities.length - 1));
+    return entities[this._mediaIndex];
   }
 
   _mediaSignature(entity) {
@@ -171,11 +184,15 @@ class NavDockCard extends HTMLElement {
     ]);
   }
 
+  _mediaCollectionSignature() {
+    return this._getActiveMediaEntities().map((entity) => this._mediaSignature(entity)).join('||') || 'none';
+  }
+
   _render() {
     if (!this._config || !this._hass) return;
     this._activeMedia = this._getActiveMedia();
     if (!this._activeMedia) this._expanded = false;
-    this._lastMediaSignature = this._mediaSignature(this._activeMedia);
+    this._lastMediaSignature = this._mediaCollectionSignature();
     this._lastProfileSignature = JSON.stringify(this._getProfileData());
     this._lastProfileEntitiesSignature = this._profileEntitiesSignature();
 
@@ -186,7 +203,7 @@ class NavDockCard extends HTMLElement {
     const preview = this._isPreview();
     if (preview) { this._expanded = false; this._profileOpen = false; }
     const maxWidth = Math.max(300, Number(this._config.width) || 520);
-    const panelWidth = Math.max(maxWidth, Number(this._config.panel_width) || 620);
+    const panelWidth = Math.max(300, Number(this._config.panel_width) || maxWidth);
     const bottom = Math.max(4, Number(this._config.bottom) || 18);
     const breakpoint = Math.max(480, Math.min(1600, Number(this._config.breakpoint) || 768));
     const isMobile = window.innerWidth < breakpoint;
@@ -258,7 +275,7 @@ class NavDockCard extends HTMLElement {
       .icon-btn { width:42px; height:42px; border:0; border-radius:50%; display:grid; place-items:center; cursor:pointer; color:var(--primary-text-color); background:transparent; }
       .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px rgba(0,0,0,.18); }
       .icon-btn ha-icon { width:24px; height:24px; }
-      .expanded { width:min(calc(100vw - 24px),var(--nd-panel-width));align-self:center;border-radius:var(--nd-radius); padding:22px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
+      .expanded { width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:390px;align-self:center;border-radius:var(--nd-radius); padding:24px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center;display:flex;flex-direction:column;justify-content:space-between;touch-action:pan-y; }
       .expanded-head { display:grid; grid-template-columns:96px minmax(0,1fr) 40px; gap:16px; align-items:center; }
       .expanded .cover { width:96px; height:96px; border-radius:26px; }
       .expanded .title { font-size:19px; }
@@ -271,13 +288,14 @@ class NavDockCard extends HTMLElement {
       .large-controls .primary { width:66px; height:66px; }
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
+      .media-kind{display:inline-flex;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:var(--nd-surface-soft);color:var(--nd-accent);font-size:10px;font-weight:750}.media-switcher{display:flex;align-items:center;gap:5px;margin-top:7px}.media-dot{width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:50%;background:var(--secondary-text-color);opacity:.35;cursor:pointer}.media-dot.active{width:18px;border-radius:5px;background:var(--nd-accent);opacity:1}.source-picker{display:grid;gap:7px;margin:16px 0;font-size:11px;font-weight:700;color:var(--secondary-text-color)}.source-picker select{width:100%;height:48px;padding:0 14px;border:1px solid var(--nd-border);border-radius:16px;color:var(--primary-text-color);background:var(--nd-surface-soft);font:inherit}.compact{touch-action:pan-y}
       .profile-panel{border-radius:var(--nd-radius);padding:18px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-head{display:grid;grid-template-columns:58px 1fr 40px;gap:13px;align-items:center;margin-bottom:15px}.profile-big-avatar{width:58px;height:58px;border-radius:20px;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft)}.profile-big-avatar img{width:100%;height:100%;object-fit:cover}.profile-big-avatar ha-icon{width:30px;height:30px;color:var(--nd-accent)}.profile-name{font-size:18px;font-weight:780}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:4px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.info-tile{min-width:0;padding:13px;border-radius:20px;background:var(--nd-surface-soft)}.info-icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface)}.info-icon ha-icon{width:20px}.info-label{margin-top:9px;font-size:11px;color:var(--secondary-text-color)}.info-value{margin-top:3px;font-size:13px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-entities{display:grid;gap:7px;margin-top:12px}.profile-entity{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 12px;border:0;border-radius:18px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent)}.entity-name{font-size:13px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-state{font-size:12px;font-weight:720;color:var(--nd-accent)}
-      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));align-self:center;padding:22px;max-height:min(620px,calc(100vh - 120px))}
+      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;padding:22px;max-height:min(620px,calc(100vh - 120px))}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
       @keyframes nd-fade { from { opacity:0; } }
-      @media (max-width:430px) { .stack.floating{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{padding:15px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
+      @media (max-width:430px) { .stack.floating{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{min-height:350px;padding:18px}.expanded-head{grid-template-columns:82px minmax(0,1fr) 36px}.expanded .cover{width:82px;height:82px}.profile-panel{min-height:330px;padding:18px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
       @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
     `;
   }
@@ -348,11 +366,24 @@ class NavDockCard extends HTMLElement {
     return `<span class="cover fallback ${className}"><ha-icon icon="mdi:music-note"></ha-icon></span>`;
   }
 
+  _mediaKind(entity) {
+    const a = entity.attributes || {};
+    const haystack = [a.device_class, a.media_content_type, a.app_name, a.source, a.friendly_name].join(' ').toLowerCase();
+    return /tv|television|video|receiver|magenta|netflix|prime|plex/.test(haystack) ? 'tv' : 'music';
+  }
+
+  _mediaDots() {
+    const entities = this._getActiveMediaEntities();
+    if (entities.length < 2) return '';
+    return `<div class="media-switcher" aria-label="Aktive Media Player">${entities.map((entity, index) => `<button class="media-dot ${index === this._mediaIndex ? 'active' : ''}" data-media-select="${index}" title="${ndEsc(entity.attributes.friendly_name || entity.entity_id)}"></button>`).join('')}</div>`;
+  }
+
   _compactTemplate(entity) {
     const a = entity.attributes;
-    return `<article class="compact" data-expand role="button" tabindex="0" aria-label="Media Player öffnen">
+    const kind = this._mediaKind(entity);
+    return `<article class="compact" data-expand data-swipe-media role="button" tabindex="0" aria-label="Media Player öffnen">
       ${this._cover(entity)}
-      <div class="meta"><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div></div>
+      <div class="meta"><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${kind === 'tv' ? 'TV · ' : 'Musik · '}${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div>${this._mediaDots()}</div>
       <div class="controls">
         <button class="icon-btn skip" data-service="media_previous_track" aria-label="Zurück"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
         ${this._playButton(entity, false)}
@@ -368,13 +399,16 @@ class NavDockCard extends HTMLElement {
 
   _expandedTemplate(entity) {
     const a = entity.attributes;
+    const kind = this._mediaKind(entity);
     const duration = Number(a.media_duration) || 0;
     const position = this._position(entity);
     const volume = Math.round((Number(a.volume_level) || 0) * 100);
-    return `<article class="expanded" aria-label="Erweiterter Media Player">
-      <div class="expanded-head">${this._cover(entity)}<div class="meta"><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div></div><button class="icon-btn" data-collapse aria-label="Einklappen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div>
+    const sources = Array.isArray(a.source_list) ? a.source_list : [];
+    return `<article class="expanded ${kind}" data-swipe-media aria-label="Erweiterter Media Player">
+      <div class="expanded-head">${this._cover(entity)}<div class="meta"><div class="media-kind">${kind === 'tv' ? 'Fernsehen' : 'Musik'}</div><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div>${this._mediaDots()}</div><button class="icon-btn" data-collapse aria-label="Einklappen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div>
       ${duration ? `<div class="timeline"><input data-seek type="range" min="0" max="${duration}" step="1" value="${position}"><div class="times"><span class="live-position">${ndTime(position)}</span><span>${ndTime(duration)}</span></div></div>` : ''}
-      <div class="large-controls"><button class="icon-btn" data-service="media_previous_track"><ha-icon icon="mdi:skip-previous"></ha-icon></button>${this._playButton(entity, true)}<button class="icon-btn" data-service="media_next_track"><ha-icon icon="mdi:skip-next"></ha-icon></button></div>
+      ${kind === 'tv' && sources.length ? `<label class="source-picker"><span>Sender / Quelle</span><select data-source>${sources.map((source) => `<option value="${ndEsc(source)}" ${source === a.source ? 'selected' : ''}>${ndEsc(source)}</option>`).join('')}</select></label>` : ''}
+      <div class="large-controls"><button class="icon-btn" data-service="media_previous_track"><ha-icon icon="${kind === 'tv' ? 'mdi:chevron-left' : 'mdi:skip-previous'}"></ha-icon></button>${this._playButton(entity, true)}<button class="icon-btn" data-service="media_next_track"><ha-icon icon="${kind === 'tv' ? 'mdi:chevron-right' : 'mdi:skip-next'}"></ha-icon></button></div>
       <div class="volume"><ha-icon icon="${a.is_volume_muted ? 'mdi:volume-off' : 'mdi:volume-medium'}"></ha-icon><input data-volume type="range" min="0" max="100" step="1" value="${volume}"></div>
     </article>`;
   }
@@ -409,7 +443,7 @@ class NavDockCard extends HTMLElement {
       } else ndNavigate(this._config.profile_path || '/profile');
     });
     this.shadowRoot.querySelector('[data-expand]')?.addEventListener('click', (event) => {
-      if (event.target.closest('[data-service]')) return;
+      if (event.target.closest('[data-service],[data-media-select]')) return;
       if (this._config.expanded_player !== false) { this._profileOpen = false; this._expanded = true; this._render(); }
     });
     this.shadowRoot.querySelector('.scrim')?.addEventListener('click', () => { this._expanded = false; this._profileOpen = false; this._render(); });
@@ -419,10 +453,30 @@ class NavDockCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-service]').forEach((button) => button.addEventListener('click', (event) => {
       event.stopPropagation(); this._call(button.dataset.service);
     }));
+    this.shadowRoot.querySelectorAll('[data-media-select]').forEach((button) => button.addEventListener('click', (event) => {
+      event.stopPropagation(); this._mediaIndex = Number(button.dataset.mediaSelect); this._render();
+    }));
+    this.shadowRoot.querySelector('[data-source]')?.addEventListener('change', (event) => this._call('select_source', { source: event.target.value }));
     this.shadowRoot.querySelector('[data-seek]')?.addEventListener('change', (event) => this._call('media_seek', { seek_position: Number(event.target.value) }));
     this.shadowRoot.querySelector('[data-volume]')?.addEventListener('change', (event) => this._call('volume_set', { volume_level: Number(event.target.value) / 100 }));
+    this.shadowRoot.querySelectorAll('[data-swipe-media]').forEach((element) => this._bindMediaSwipe(element));
     clearInterval(this._positionTimer);
     if (this._expanded && this._activeMedia?.state === 'playing') this._positionTimer = setInterval(() => this._updatePosition(), 1000);
+  }
+
+  _bindMediaSwipe(element) {
+    let startX = null;
+    element.addEventListener('pointerdown', (event) => { if (!event.target.closest('input,select,button')) startX = event.clientX; });
+    element.addEventListener('pointerup', (event) => {
+      if (startX === null) return;
+      const delta = event.clientX - startX;
+      startX = null;
+      const count = this._getActiveMediaEntities().length;
+      if (count < 2 || Math.abs(delta) < 45) return;
+      this._mediaIndex = delta < 0 ? (this._mediaIndex + 1) % count : (this._mediaIndex - 1 + count) % count;
+      this._render();
+    });
+    element.addEventListener('pointercancel', () => { startX = null; });
   }
 
   _updatePosition() {
@@ -448,7 +502,7 @@ class NavDockCard extends HTMLElement {
 }
 
 class NavDockCardEditor extends HTMLElement {
-  constructor() { super(); this.attachShadow({ mode: 'open' }); }
+  constructor() { super(); this.attachShadow({ mode: 'open' }); this._editorPage = 'dock'; }
   set hass(value) {
     this._hass = value;
     if (!this.shadowRoot.firstChild) this._render();
@@ -466,13 +520,14 @@ class NavDockCardEditor extends HTMLElement {
     const profileEntities = Array.isArray(c.profile_entities) ? c.profile_entities : [];
     this.shadowRoot.innerHTML = `<style>
       :host{display:block;max-width:100%;overflow:hidden;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}*{box-sizing:border-box;min-width:0}.editor{display:grid;gap:10px;width:100%}.group{padding:14px;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius,22px);background:var(--ha-card-background,var(--card-background-color));overflow:hidden}.group-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.group-icon{flex:0 0 36px;width:36px;height:36px;border-radius:13px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.group-icon ha-icon{width:21px}.group-title{font-size:15px;font-weight:750}.hint{font-size:11px;color:var(--secondary-text-color);margin-top:2px}.subhead{margin:13px 0 5px;font-size:12px;font-weight:750}.row{display:grid;grid-template-columns:1fr;gap:9px;margin-top:10px}.field{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:650;color:var(--secondary-text-color)}input{width:100%;height:44px;padding:0 12px;color:var(--primary-text-color);background:var(--primary-background-color);border:1px solid var(--divider-color);border-radius:14px;outline:none}input:focus{border:2px solid var(--primary-color)}ha-icon-picker{width:100%;max-width:100%;min-height:44px}.icon-choice{display:grid;grid-template-columns:42px minmax(0,1fr);gap:7px;align-items:center;padding:5px;border:1px solid var(--divider-color);border-radius:16px;background:var(--primary-background-color);overflow:hidden}.icon-preview{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.toggle-grid{display:grid;grid-template-columns:1fr;gap:7px}.toggle{min-height:48px;padding:8px 11px;border-radius:15px;display:flex;align-items:center;gap:9px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:12px;font-weight:650}.toggle input{width:19px;height:19px;accent-color:var(--primary-color)}.segments{display:flex;gap:5px;padding:4px;border-radius:15px;background:var(--secondary-background-color);overflow:hidden}.segments button{flex:1;min-width:0;padding:7px 5px;font-size:11px}.advanced{margin-top:10px;border-radius:16px;background:var(--secondary-background-color);overflow:hidden}.advanced summary{padding:12px;cursor:pointer;font-size:12px;font-weight:720}.advanced-body{padding:0 12px 12px}.tabedit{margin-top:7px;border-radius:17px;background:var(--secondary-background-color);overflow:hidden}.tabedit summary{display:flex;align-items:center;gap:9px;padding:10px;cursor:pointer;list-style:none}.tabedit summary::-webkit-details-marker{display:none}.tabbody{padding:0 10px 10px}.tabhead{display:flex;align-items:center;justify-content:flex-end;margin-top:8px}.tabnumber{display:flex;align-items:center;gap:9px;font-weight:750;overflow:hidden}.tabnumber>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dragdot{flex:0 0 30px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--primary-background-color);color:var(--primary-color)}.actions{display:flex;gap:5px}button{min-height:36px;border:0;border-radius:12px;padding:7px 10px;color:var(--primary-text-color);background:var(--primary-background-color);cursor:pointer;font-weight:650}.selected,.add{color:var(--text-primary-color,#fff);background:var(--primary-color)}.actions button{width:36px;padding:0}.add{width:100%;margin-top:9px;min-height:44px}.media-row{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:6px;align-items:center;margin-top:7px}.media-row ha-entity-picker{width:100%;max-width:100%}.empty{padding:11px;text-align:center;color:var(--secondary-text-color);font-size:11px;border:1px dashed var(--divider-color);border-radius:14px}
+      .page-nav{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:5px;margin-bottom:2px;border-radius:17px;background:var(--secondary-background-color)}.page-nav button{display:grid;place-items:center;gap:2px;padding:7px 3px;font-size:10px;background:transparent}.page-nav button ha-icon{width:20px}.page-nav button.selected{color:var(--text-primary-color,#fff);background:var(--primary-color)}
     </style>
     <div class="editor">
-      ${this._group('mdi:responsive','Mobil & Desktop','Je Bildschirm automatisch passend',`<div class="subhead">Mobil</div><div class="segments"><button data-placement-key="mobile_mode" data-placement="docked" class="${(c.mobile_mode || 'docked') === 'docked' ? 'selected' : ''}">Angeheftet</button><button data-placement-key="mobile_mode" data-placement="floating" class="${c.mobile_mode === 'floating' ? 'selected' : ''}">Schwebend</button></div><div class="subhead">Desktop</div><div class="segments"><button data-placement-key="desktop_mode" data-placement="floating" class="${(c.desktop_mode || 'floating') === 'floating' ? 'selected' : ''}">Schwebend</button><button data-placement-key="desktop_mode" data-placement="docked" class="${c.desktop_mode === 'docked' ? 'selected' : ''}">Angeheftet</button></div><div class="toggle-grid"><label class="toggle"><input data-check="mobile_show_labels" type="checkbox" ${c.mobile_show_labels === true ? 'checked' : ''}>Labels auf Mobilgeräten</label><label class="toggle"><input data-check="desktop_show_labels" type="checkbox" ${c.desktop_show_labels !== false ? 'checked' : ''}>Labels auf Desktop</label></div>`)}
-      ${this._group('mdi:dock-bottom','Aussehen','Einfach dem Theme folgen',`<div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Abhebung vom Hintergrund</label><details class="advanced"><summary>Erweiterte Größen</summary><div class="advanced-body"><div class="row"><label class="field">Desktop ab Breite<input data-key="breakpoint" type="number" min="480" max="1600" value="${ndEsc(c.breakpoint ?? 768)}"></label><label class="field">Maximale Breite<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" min="56" max="90" value="${ndEsc(c.height ?? 68)}"></label><label class="field">Eigener Radius (0 = Theme)<input data-key="radius" type="number" min="0" max="60" value="${ndEsc(c.radius ?? 0)}"></label><label class="field">Icon-Größe<input data-key="icon_size" type="number" min="18" max="36" value="${ndEsc(c.icon_size ?? 23)}"></label><label class="field">Text-Größe<input data-key="label_size" type="number" min="9" max="16" value="${ndEsc(c.label_size ?? 11)}"></label></div></div></details>`)}
-      ${this._group('mdi:tab','Navigation','Tabs einfach anordnen und bearbeiten',`${(c.tabs || []).map((tab,index)=>this._tabEditor(tab,index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button>`)}
-      ${this._group('mdi:play-circle','Media Player','Aktive Player werden automatisch ausgewählt',`<div class="toggle-grid"><label class="toggle"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Zeile</label><label class="toggle"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großer Player</label></div><div class="media-list">${media.length ? media.map((id,index)=>`<div class="media-row"><ha-entity-picker data-media-index="${index}" value="${ndEsc(id)}" include-domains="media_player"></ha-entity-picker><button data-remove-media="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Noch kein Media-Player ausgewählt</div>'}</div><button class="add" data-add-media>+ Media-Player</button>`)}
-      ${this._group('mdi:account-circle','Profilpanel','Kleine persönliche Info-Seite direkt über der Dock',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil-Tab anzeigen</label><label class="toggle"><input data-check="profile_panel_enabled" type="checkbox" ${c.profile_panel_enabled !== false ? 'checked' : ''}>Panel beim Tippen</label><label class="toggle"><input data-check="profile_show_user" type="checkbox" ${c.profile_show_user !== false ? 'checked' : ''}>Benutzerrolle</label><label class="toggle"><input data-check="profile_show_system" type="checkbox" ${c.profile_show_system !== false ? 'checked' : ''}>HA-Informationen</label><label class="toggle"><input data-check="profile_show_connection" type="checkbox" ${c.profile_show_connection !== false ? 'checked' : ''}>Verbindung</label><label class="toggle"><input data-check="profile_show_device" type="checkbox" ${c.profile_show_device !== false ? 'checked' : ''}>Dieses Gerät</label></div><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Pfad ohne Panel<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field full">Avatar überschreiben (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="Automatisch vom aktuellen Benutzer"></label></div><div class="subhead">Entitäten im Panel</div>${profileEntities.length ? profileEntities.map((id,index)=>`<div class="media-row"><ha-entity-picker data-profile-entity-index="${index}" value="${ndEsc(id)}"></ha-entity-picker><button data-remove-profile-entity="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Optional eigene Sensoren oder Geräte anzeigen</div>'}<button class="add" data-add-profile-entity>+ Entität</button>`)}
+      <nav class="page-nav"><button data-editor-page="dock" class="${this._editorPage === 'dock' ? 'selected' : ''}"><ha-icon icon="mdi:dock-bottom"></ha-icon>Dock</button><button data-editor-page="tabs" class="${this._editorPage === 'tabs' ? 'selected' : ''}"><ha-icon icon="mdi:tab"></ha-icon>Tabs</button><button data-editor-page="media" class="${this._editorPage === 'media' ? 'selected' : ''}"><ha-icon icon="mdi:play-circle"></ha-icon>Medien</button><button data-editor-page="profile" class="${this._editorPage === 'profile' ? 'selected' : ''}"><ha-icon icon="mdi:account-circle"></ha-icon>Profil</button></nav>
+      ${this._editorPage === 'dock' ? this._group('mdi:responsive','Dock','Mobil und Desktop automatisch passend',`<div class="subhead">Mobil</div><div class="segments"><button data-placement-key="mobile_mode" data-placement="docked" class="${(c.mobile_mode || 'docked') === 'docked' ? 'selected' : ''}">Angeheftet</button><button data-placement-key="mobile_mode" data-placement="floating" class="${c.mobile_mode === 'floating' ? 'selected' : ''}">Schwebend</button></div><div class="subhead">Desktop</div><div class="segments"><button data-placement-key="desktop_mode" data-placement="floating" class="${(c.desktop_mode || 'floating') === 'floating' ? 'selected' : ''}">Schwebend</button><button data-placement-key="desktop_mode" data-placement="docked" class="${c.desktop_mode === 'docked' ? 'selected' : ''}">Angeheftet</button></div><div class="toggle-grid"><label class="toggle"><input data-check="mobile_show_labels" type="checkbox" ${c.mobile_show_labels === true ? 'checked' : ''}>Labels mobil</label><label class="toggle"><input data-check="desktop_show_labels" type="checkbox" ${c.desktop_show_labels !== false ? 'checked' : ''}>Labels Desktop</label><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Abhebung vom Hintergrund</label></div><details class="advanced"><summary>Aussehen & Größe</summary><div class="advanced-body"><div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><div class="row"><label class="field">Desktop ab Breite<input data-key="breakpoint" type="number" value="${ndEsc(c.breakpoint ?? 768)}"></label><label class="field">Maximale Breite<input data-key="width" type="number" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" value="${ndEsc(c.height ?? 68)}"></label></div></div></details>`) : ''}
+      ${this._editorPage === 'tabs' ? this._group('mdi:tab','Navigation','Tab antippen, um ihn zu bearbeiten',`${(c.tabs || []).map((tab,index)=>this._tabEditor(tab,index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button>`) : ''}
+      ${this._editorPage === 'media' ? this._group('mdi:play-circle','Medien','Aktive Player erkennen und per Wischgeste wechseln',`<div class="toggle-grid"><label class="toggle"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Player anzeigen</label><label class="toggle"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großes Panel</label><label class="toggle"><input data-check="media_auto_discover" type="checkbox" ${c.media_auto_discover === true ? 'checked' : ''}>Player automatisch erkennen</label></div><details class="advanced"><summary>Player manuell auswählen</summary><div class="advanced-body"><div class="media-list">${media.length ? media.map((id,index)=>`<div class="media-row"><ha-entity-picker data-media-index="${index}" value="${ndEsc(id)}"></ha-entity-picker><button data-remove-media="${index}">✕</button></div>`).join('') : '<div class="empty">Keine manuelle Auswahl</div>'}</div><button class="add" data-add-media>+ Player</button></div></details>`) : ''}
+      ${this._editorPage === 'profile' ? this._group('mdi:account-circle','Profil','Persönliche Infos und eigene Entitäten',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil anzeigen</label><label class="toggle"><input data-check="profile_panel_enabled" type="checkbox" ${c.profile_panel_enabled !== false ? 'checked' : ''}>Panel beim Tippen</label><label class="toggle"><input data-check="profile_show_user" type="checkbox" ${c.profile_show_user !== false ? 'checked' : ''}>Benutzerrolle</label><label class="toggle"><input data-check="profile_show_system" type="checkbox" ${c.profile_show_system !== false ? 'checked' : ''}>HA-Informationen</label><label class="toggle"><input data-check="profile_show_connection" type="checkbox" ${c.profile_show_connection !== false ? 'checked' : ''}>Verbindung</label><label class="toggle"><input data-check="profile_show_device" type="checkbox" ${c.profile_show_device !== false ? 'checked' : ''}>Dieses Gerät</label></div><details class="advanced"><summary>Weitere Profiloptionen</summary><div class="advanced-body"><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Pfad ohne Panel<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field">Avatar optional<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}"></label></div><div class="subhead">Entitäten</div>${profileEntities.length ? profileEntities.map((id,index)=>`<div class="media-row"><ha-entity-picker data-profile-entity-index="${index}" value="${ndEsc(id)}"></ha-entity-picker><button data-remove-profile-entity="${index}">✕</button></div>`).join('') : '<div class="empty">Keine zusätzlichen Entitäten</div>'}<button class="add" data-add-profile-entity>+ Entität</button></div></details>`) : ''}
     </div>`;
     this.shadowRoot.querySelectorAll('ha-entity-picker').forEach((picker) => { picker.hass = this._hass; if (picker.hasAttribute('data-media-index')) picker.includeDomains = ['media_player']; });
     this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((picker) => { picker.hass = this._hass; });
@@ -487,6 +542,7 @@ class NavDockCardEditor extends HTMLElement {
 
   _emit(next) { this._config = next; ndFire(this, 'config-changed', { config: next }); }
   _bind() {
+    this.shadowRoot.querySelectorAll('[data-editor-page]').forEach((button) => button.addEventListener('click', () => { this._editorPage = button.dataset.editorPage; this._render(); }));
     this.shadowRoot.querySelectorAll('[data-key]').forEach((input) => input.addEventListener('change', () => {
       const numeric = input.type === 'number'; this._emit({ ...this._config, [input.dataset.key]: numeric ? Number(input.value) : input.value });
     }));

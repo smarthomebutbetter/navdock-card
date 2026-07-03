@@ -69,8 +69,16 @@ eine klare Trennung vom scrollenden Dashboard-Inhalt.
 Im Dashboard-Bearbeitungsmodus wechselt NavDock automatisch in eine eingebettete
 Vorschau. Sie bleibt innerhalb ihres Kartenplatzes, ist nicht interaktiv und
 überlagert weder den Konfigurationsdialog noch andere Dashboard-Karten. Media-
-und Profilpanel werden im normalen Betrieb breiter als die Dock dargestellt,
-bleiben auf kleinen Bildschirmen aber responsiv.
+und Profilpanel nutzen im normalen Betrieb mehr Höhe, bleiben aber auf der
+kompakten Dock-Breite und reagieren auf kleine Bildschirme.
+
+Der visuelle Editor ist in vier kurze Seiten gegliedert: **Dock**, **Tabs**,
+**Medien** und **Profil**. Seltene Optionen bleiben eingeklappt. Optional kann
+NavDock alle `media_player`-Entitäten automatisch erkennen. Sind mehrere Player
+aktiv, lässt sich horizontal zwischen ihnen wischen. Musik und TV werden anhand
+der Entity-Attribute unterschieden; TV-Player erhalten bei vorhandener
+`source_list` eine Sender-/Quellenauswahl. Die konkret verfügbaren Befehle und
+Sender werden dabei von der jeweiligen Home-Assistant-Integration bestimmt.
 
 ## Vollständiges Beispiel
 
