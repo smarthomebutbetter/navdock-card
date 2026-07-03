@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.3.0';
+const ND_VERSION = '1.4.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -45,6 +45,12 @@ class NavDockCard extends HTMLElement {
       media_enabled: true,
       media_players: media ? [media] : [],
       expanded_player: true,
+      responsive_mode: 'auto',
+      breakpoint: 768,
+      mobile_mode: 'docked',
+      desktop_mode: 'floating',
+      mobile_show_labels: false,
+      desktop_show_labels: true,
       profile_enabled: true,
       profile_panel_enabled: true,
       profile_label: 'Profil',
@@ -65,11 +71,17 @@ class NavDockCard extends HTMLElement {
     this._hass = null;
     this._positionTimer = null;
     this._onLocation = () => this._render();
+    this._onResize = () => {
+      clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => this._render(), 120);
+    };
   }
 
-  connectedCallback() { window.addEventListener('location-changed', this._onLocation); }
+  connectedCallback() { window.addEventListener('location-changed', this._onLocation); window.addEventListener('resize', this._onResize); }
   disconnectedCallback() {
     window.removeEventListener('location-changed', this._onLocation);
+    window.removeEventListener('resize', this._onResize);
+    clearTimeout(this._resizeTimer);
     clearInterval(this._positionTimer);
   }
 
@@ -80,6 +92,12 @@ class NavDockCard extends HTMLElement {
       media_enabled: true,
       media_players: [],
       expanded_player: true,
+      responsive_mode: 'auto',
+      breakpoint: 768,
+      mobile_mode: 'docked',
+      desktop_mode: 'floating',
+      mobile_show_labels: false,
+      desktop_show_labels: true,
       profile_enabled: true,
       profile_panel_enabled: true,
       profile_label: 'Profil',
@@ -154,6 +172,13 @@ class NavDockCard extends HTMLElement {
     const mediaVisible = this._config.media_enabled !== false && Boolean(media);
     const maxWidth = Math.max(300, Number(this._config.width) || 520);
     const bottom = Math.max(4, Number(this._config.bottom) || 18);
+    const breakpoint = Math.max(480, Math.min(1600, Number(this._config.breakpoint) || 768));
+    const responsiveMode = this._config.responsive_mode || 'auto';
+    const isMobile = responsiveMode === 'mobile' || (responsiveMode === 'auto' && window.innerWidth < breakpoint);
+    const placement = isMobile ? (this._config.mobile_mode || 'docked') : (this._config.desktop_mode || 'floating');
+    const showLabels = isMobile
+      ? (this._config.mobile_show_labels ?? this._config.show_labels ?? false)
+      : (this._config.desktop_show_labels ?? this._config.show_labels ?? true);
     const height = Math.max(56, Math.min(90, Number(this._config.height) || 68));
     const iconSize = Math.max(18, Math.min(36, Number(this._config.icon_size) || 23));
     const labelSize = Math.max(9, Math.min(16, Number(this._config.label_size) || 11));
@@ -167,7 +192,7 @@ class NavDockCard extends HTMLElement {
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${this._expanded || this._profileOpen ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${this._config.show_labels === false ? 'hide-labels' : ''} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:${ndEsc(accent)}">
+      <section class="stack ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:${ndEsc(accent)};--nd-max-width:${maxWidth}px">
         ${this._profileOpen ? this._profilePanelTemplate() : ''}
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
         ${mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
@@ -186,7 +211,11 @@ class NavDockCard extends HTMLElement {
       *, *::before, *::after { box-sizing:border-box; }
       button { font:inherit; }
       .spacer { height:1px; }
-      .stack { position:fixed; z-index:6; left:50%; bottom:${bottom}px; width:min(calc(100vw - 24px),${maxWidth}px); transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+      .stack { position:fixed; z-index:6; display:flex; flex-direction:column; gap:8px; pointer-events:none; transition:width .2s ease,bottom .2s ease; }
+      .stack.floating{left:50%;bottom:${bottom}px;width:min(calc(100vw - 24px),var(--nd-max-width));transform:translateX(-50%)}
+      .stack.docked{left:0;right:0;bottom:0;width:100%;transform:none;gap:6px}
+      .docked .dock{width:100%;border-radius:var(--nd-radius) var(--nd-radius) 0 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+      .docked .compact,.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}
       .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--ha-card-box-shadow,0 10px 26px rgba(0,0,0,.18)); }
       .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
       .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
@@ -230,7 +259,7 @@ class NavDockCard extends HTMLElement {
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
       @keyframes nd-fade { from { opacity:0; } }
-      @media (max-width:430px) { .stack{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{padding:15px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
+      @media (max-width:430px) { .stack.floating{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{padding:15px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
       @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
     `;
   }
@@ -421,7 +450,8 @@ class NavDockCardEditor extends HTMLElement {
       :host{display:block;color:var(--primary-text-color);font-family:var(--paper-font-body1_-_font-family,inherit)}*{box-sizing:border-box}.editor{display:grid;gap:16px;padding:4px}.group{padding:18px;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius,28px);background:var(--ha-card-background,var(--card-background-color))}.group-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}.group-icon{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:var(--primary-color);background:var(--secondary-background-color)}.group-icon ha-icon{width:23px}.group-title{font-size:17px;font-weight:750}.hint{font-size:12px;color:var(--secondary-text-color);margin-top:2px}.subhead{margin:16px 0 5px;font-size:13px;font-weight:750}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.full{grid-column:1/-1}.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary-text-color)}input{width:100%;height:48px;padding:0 14px;color:var(--primary-text-color);background:var(--primary-background-color);border:1px solid var(--divider-color);border-radius:16px;outline:none}input:focus{border:2px solid var(--primary-color)}ha-icon-picker{width:100%;min-height:48px}.toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{min-height:54px;padding:10px 13px;border-radius:18px;display:flex;align-items:center;gap:10px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:13px;font-weight:650}.toggle input{width:20px;height:20px;accent-color:var(--primary-color)}.segments{display:flex;gap:6px;padding:5px;border-radius:18px;background:var(--secondary-background-color)}.segments button{flex:1}.tabedit{padding:14px;margin-top:10px;border-radius:22px;background:var(--secondary-background-color)}.tabhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.tabnumber{display:flex;align-items:center;gap:9px;font-weight:750}.dragdot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--primary-background-color);color:var(--primary-color)}.actions{display:flex;gap:5px}button{min-height:38px;border:0;border-radius:14px;padding:8px 12px;color:var(--primary-text-color);background:var(--primary-background-color);cursor:pointer;font-weight:650}button.selected,.add{color:var(--text-primary-color,#fff);background:var(--primary-color)}.actions button{width:38px;padding:0}.add{width:100%;margin-top:12px;min-height:48px}.media-row{display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center;margin-top:9px}.media-row ha-entity-picker{width:100%}.empty{padding:14px;text-align:center;color:var(--secondary-text-color);font-size:12px;border:1px dashed var(--divider-color);border-radius:16px}@media(max-width:520px){.row,.toggle-grid{grid-template-columns:1fr}.full{grid-column:auto}.group{padding:14px}}
     </style>
     <div class="editor">
-      ${this._group('mdi:dock-bottom','Dock & Form','Größe, Position und Theme-Verhalten',`<div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><div class="row"><label class="field">Maximale Breite<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" min="56" max="90" value="${ndEsc(c.height ?? 68)}"></label><label class="field">Eigener Radius (0 = Theme)<input data-key="radius" type="number" min="0" max="60" value="${ndEsc(c.radius ?? 0)}"></label><label class="field">Icon-Größe<input data-key="icon_size" type="number" min="18" max="36" value="${ndEsc(c.icon_size ?? 23)}"></label><label class="field">Text-Größe<input data-key="label_size" type="number" min="9" max="16" value="${ndEsc(c.label_size ?? 11)}"></label><label class="field full">Akzentfarbe (leer = Theme)<input data-key="accent_color" value="${ndEsc(c.accent_color || '')}" placeholder="var(--primary-color) oder #7d8fd3"></label></div><div class="toggle-grid"><label class="toggle"><input data-check="show_labels" type="checkbox" ${c.show_labels !== false ? 'checked' : ''}>Beschriftungen zeigen</label><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Theme-Schatten</label></div>`)}
+      ${this._group('mdi:responsive','Mobil & Desktop','Automatisch erkennen oder eine Ansicht zum Testen erzwingen',`<div class="subhead">Geräteerkennung</div><div class="segments"><button data-responsive="auto" class="${(c.responsive_mode || 'auto') === 'auto' ? 'selected' : ''}">Automatisch</button><button data-responsive="mobile" class="${c.responsive_mode === 'mobile' ? 'selected' : ''}">Mobil</button><button data-responsive="desktop" class="${c.responsive_mode === 'desktop' ? 'selected' : ''}">Desktop</button></div><div class="row"><label class="field full">Desktop ab Breite (px)<input data-key="breakpoint" type="number" min="480" max="1600" value="${ndEsc(c.breakpoint ?? 768)}"></label></div><div class="subhead">Mobil</div><div class="segments"><button data-placement-key="mobile_mode" data-placement="docked" class="${(c.mobile_mode || 'docked') === 'docked' ? 'selected' : ''}">Angeheftet</button><button data-placement-key="mobile_mode" data-placement="floating" class="${c.mobile_mode === 'floating' ? 'selected' : ''}">Schwebend</button></div><div class="subhead">Desktop</div><div class="segments"><button data-placement-key="desktop_mode" data-placement="floating" class="${(c.desktop_mode || 'floating') === 'floating' ? 'selected' : ''}">Schwebend</button><button data-placement-key="desktop_mode" data-placement="docked" class="${c.desktop_mode === 'docked' ? 'selected' : ''}">Angeheftet</button></div><div class="toggle-grid"><label class="toggle"><input data-check="mobile_show_labels" type="checkbox" ${c.mobile_show_labels === true ? 'checked' : ''}>Labels mobil</label><label class="toggle"><input data-check="desktop_show_labels" type="checkbox" ${c.desktop_show_labels !== false ? 'checked' : ''}>Labels Desktop</label></div>`)}
+      ${this._group('mdi:dock-bottom','Dock & Form','Größe, Position und Theme-Verhalten',`<div class="segments"><button data-radius="0" class="${!Number(c.radius) ? 'selected' : ''}">Theme</button><button data-radius="24" class="${Number(c.radius) === 24 ? 'selected' : ''}">Rund</button><button data-radius="40" class="${Number(c.radius) === 40 ? 'selected' : ''}">Pill</button></div><div class="row"><label class="field">Maximale Breite<input data-key="width" type="number" min="300" max="900" value="${ndEsc(c.width ?? 520)}"></label><label class="field">Abstand unten<input data-key="bottom" type="number" min="4" max="100" value="${ndEsc(c.bottom ?? 18)}"></label><label class="field">Dock-Höhe<input data-key="height" type="number" min="56" max="90" value="${ndEsc(c.height ?? 68)}"></label><label class="field">Eigener Radius (0 = Theme)<input data-key="radius" type="number" min="0" max="60" value="${ndEsc(c.radius ?? 0)}"></label><label class="field">Icon-Größe<input data-key="icon_size" type="number" min="18" max="36" value="${ndEsc(c.icon_size ?? 23)}"></label><label class="field">Text-Größe<input data-key="label_size" type="number" min="9" max="16" value="${ndEsc(c.label_size ?? 11)}"></label><label class="field full">Akzentfarbe (leer = Theme)<input data-key="accent_color" value="${ndEsc(c.accent_color || '')}" placeholder="var(--primary-color) oder #7d8fd3"></label></div><div class="toggle-grid"><label class="toggle"><input data-check="shadow" type="checkbox" ${c.shadow !== false ? 'checked' : ''}>Theme-Schatten</label></div>`)}
       ${this._group('mdi:tab','Navigation','Tabs einfach anordnen und bearbeiten',`${(c.tabs || []).map((tab,index)=>this._tabEditor(tab,index)).join('')}<button class="add" data-add-tab>+ Tab hinzufügen</button>`)}
       ${this._group('mdi:play-circle','Media Player','Aktive Player werden automatisch ausgewählt',`<div class="toggle-grid"><label class="toggle"><input data-check="media_enabled" type="checkbox" ${c.media_enabled !== false ? 'checked' : ''}>Media-Zeile</label><label class="toggle"><input data-check="expanded_player" type="checkbox" ${c.expanded_player !== false ? 'checked' : ''}>Großer Player</label></div><div class="media-list">${media.length ? media.map((id,index)=>`<div class="media-row"><ha-entity-picker data-media-index="${index}" value="${ndEsc(id)}" include-domains="media_player"></ha-entity-picker><button data-remove-media="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Noch kein Media-Player ausgewählt</div>'}</div><button class="add" data-add-media>+ Media-Player</button>`)}
       ${this._group('mdi:account-circle','Profilpanel','Kleine persönliche Info-Seite direkt über der Dock',`<div class="toggle-grid"><label class="toggle"><input data-check="profile_enabled" type="checkbox" ${c.profile_enabled !== false ? 'checked' : ''}>Profil-Tab anzeigen</label><label class="toggle"><input data-check="profile_panel_enabled" type="checkbox" ${c.profile_panel_enabled !== false ? 'checked' : ''}>Panel beim Tippen</label><label class="toggle"><input data-check="profile_show_user" type="checkbox" ${c.profile_show_user !== false ? 'checked' : ''}>Benutzerrolle</label><label class="toggle"><input data-check="profile_show_system" type="checkbox" ${c.profile_show_system !== false ? 'checked' : ''}>HA-Informationen</label><label class="toggle"><input data-check="profile_show_connection" type="checkbox" ${c.profile_show_connection !== false ? 'checked' : ''}>Verbindung</label><label class="toggle"><input data-check="profile_show_device" type="checkbox" ${c.profile_show_device !== false ? 'checked' : ''}>Dieses Gerät</label></div><div class="row"><label class="field">Bezeichnung<input data-key="profile_label" value="${ndEsc(c.profile_label || 'Profil')}"></label><label class="field">Pfad ohne Panel<input data-key="profile_path" value="${ndEsc(c.profile_path || '/profile')}"></label><label class="field full">Avatar überschreiben (optional)<input data-key="profile_avatar" value="${ndEsc(c.profile_avatar || '')}" placeholder="Automatisch vom aktuellen Benutzer"></label></div><div class="subhead">Entitäten im Panel</div>${profileEntities.length ? profileEntities.map((id,index)=>`<div class="media-row"><ha-entity-picker data-profile-entity-index="${index}" value="${ndEsc(id)}"></ha-entity-picker><button data-remove-profile-entity="${index}" title="Entfernen">✕</button></div>`).join('') : '<div class="empty">Optional eigene Sensoren oder Geräte anzeigen</div>'}<button class="add" data-add-profile-entity>+ Entität</button>`)}
@@ -444,6 +474,8 @@ class NavDockCardEditor extends HTMLElement {
     }));
     this.shadowRoot.querySelectorAll('[data-check]').forEach((input) => input.addEventListener('change', () => this._emit({ ...this._config, [input.dataset.check]: input.checked })));
     this.shadowRoot.querySelectorAll('[data-radius]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, radius: Number(button.dataset.radius) }); this._render(); }));
+    this.shadowRoot.querySelectorAll('[data-responsive]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, responsive_mode: button.dataset.responsive }); this._render(); }));
+    this.shadowRoot.querySelectorAll('[data-placement-key]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, [button.dataset.placementKey]: button.dataset.placement }); this._render(); }));
     this.shadowRoot.querySelectorAll('[data-media-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const players = [...(this._config.media_players || [])]; players[Number(picker.dataset.mediaIndex)] = event.detail.value; this._emit({ ...this._config, media_players: players.filter(Boolean) }); }));
     this.shadowRoot.querySelectorAll('[data-remove-media]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeMedia); this._emit({ ...this._config, media_players: (this._config.media_players || []).filter((_,i)=>i!==index) }); this._render(); }));
     this.shadowRoot.querySelector('[data-add-media]')?.addEventListener('click', () => { this._emit({ ...this._config, media_players: [...(this._config.media_players || []), ''] }); this._render(); });

@@ -57,6 +57,13 @@ Browser-Gerät und zusätzliche frei gewählte Entitäten ein- oder ausblenden.
 Ein Tipp auf eine hinzugefügte Entität öffnet deren HA-Detaildialog. Die
 Navigation-Tabs besitzen native Icon-Picker für normales und aktives Icon.
 
+NavDock erkennt Mobil- und Desktopansichten automatisch über einen frei
+einstellbaren Breakpoint. Für beide Ansichten lassen sich **Schwebend** oder
+**Angeheftet** und die Sichtbarkeit der Beschriftungen getrennt festlegen. Die
+Ansicht kann im Editor auch erzwungen werden, um Mobil- oder Desktopwerte direkt
+zu testen. Im angehefteten Modus sitzt die Dock kantenbündig mit Safe-Area-
+Abstand; Panels und Media-Player bleiben auf eine gut lesbare Breite begrenzt.
+
 ## Vollständiges Beispiel
 
 ```yaml
