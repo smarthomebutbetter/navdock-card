@@ -60,9 +60,11 @@ Navigation-Tabs besitzen native Icon-Picker für normales und aktives Icon.
 NavDock erkennt Mobil- und Desktopansichten automatisch über einen frei
 einstellbaren Breakpoint. Für beide Ansichten lassen sich **Schwebend** oder
 **Angeheftet** und die Sichtbarkeit der Beschriftungen getrennt festlegen. Die
-Ansicht kann im Editor auch erzwungen werden, um Mobil- oder Desktopwerte direkt
-zu testen. Im angehefteten Modus sitzt die Dock kantenbündig mit Safe-Area-
-Abstand; Panels und Media-Player bleiben auf eine gut lesbare Breite begrenzt.
+jeweilige Einstellung greift automatisch anhand der aktuellen Bildschirmbreite.
+Im angehefteten Modus sitzt die Dock kantenbündig mit Safe-Area-Abstand; Panels
+und Media-Player bleiben auf eine gut lesbare Breite begrenzt. Im schwebenden
+Modus sorgt ein eigener Tiefenschatten auch bei Themes ohne Kartenschatten für
+eine klare Trennung vom scrollenden Dashboard-Inhalt.
 
 ## Vollständiges Beispiel
 
