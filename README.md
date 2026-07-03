@@ -66,6 +66,12 @@ und Media-Player bleiben auf eine gut lesbare Breite begrenzt. Im schwebenden
 Modus sorgt ein eigener Tiefenschatten auch bei Themes ohne Kartenschatten für
 eine klare Trennung vom scrollenden Dashboard-Inhalt.
 
+Im Dashboard-Bearbeitungsmodus wechselt NavDock automatisch in eine eingebettete
+Vorschau. Sie bleibt innerhalb ihres Kartenplatzes, ist nicht interaktiv und
+überlagert weder den Konfigurationsdialog noch andere Dashboard-Karten. Media-
+und Profilpanel werden im normalen Betrieb breiter als die Dock dargestellt,
+bleiben auf kleinen Bildschirmen aber responsiv.
+
 ## Vollständiges Beispiel
 
 ```yaml

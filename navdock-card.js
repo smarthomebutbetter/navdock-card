@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '1.5.0';
+const ND_VERSION = '1.6.0';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -76,7 +76,7 @@ class NavDockCard extends HTMLElement {
     };
   }
 
-  connectedCallback() { window.addEventListener('location-changed', this._onLocation); window.addEventListener('resize', this._onResize); }
+  connectedCallback() { window.addEventListener('location-changed', this._onLocation); window.addEventListener('resize', this._onResize); this._render(); }
   disconnectedCallback() {
     window.removeEventListener('location-changed', this._onLocation);
     window.removeEventListener('resize', this._onResize);
@@ -115,6 +115,8 @@ class NavDockCard extends HTMLElement {
     this._render();
   }
 
+  set preview(value) { this._preview = Boolean(value); this._render(); }
+
   set hass(value) {
     this._hass = value;
     const media = this._getActiveMedia();
@@ -131,6 +133,19 @@ class NavDockCard extends HTMLElement {
   }
 
   getCardSize() { return 1; }
+
+  _isPreview() {
+    if (this._preview || this.hasAttribute('preview')) return true;
+    let node = this;
+    const markers = ['hui-card-preview', 'hui-card-options', 'hui-dialog-edit-card', 'hui-card-editor'];
+    while (node) {
+      const name = String(node.tagName || '').toLowerCase();
+      if (markers.some((marker) => name.includes(marker))) return true;
+      const root = node.getRootNode?.();
+      node = node.parentElement || (root && root.host ? root.host : null);
+    }
+    return false;
+  }
 
   _getMediaEntities() {
     if (!this._hass) return [];
@@ -168,7 +183,10 @@ class NavDockCard extends HTMLElement {
     const tabs = Array.isArray(this._config.tabs) ? this._config.tabs : [];
     const profileEnabled = this._config.profile_enabled !== false;
     const mediaVisible = this._config.media_enabled !== false && Boolean(media);
+    const preview = this._isPreview();
+    if (preview) { this._expanded = false; this._profileOpen = false; }
     const maxWidth = Math.max(300, Number(this._config.width) || 520);
+    const panelWidth = Math.max(maxWidth, Number(this._config.panel_width) || 620);
     const bottom = Math.max(4, Number(this._config.bottom) || 18);
     const breakpoint = Math.max(480, Math.min(1600, Number(this._config.breakpoint) || 768));
     const isMobile = window.innerWidth < breakpoint;
@@ -187,11 +205,11 @@ class NavDockCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
-      ${this._expanded || this._profileOpen ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px">
+      ${!preview && (this._expanded || this._profileOpen) ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
+      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px">
         ${this._profileOpen ? this._profilePanelTemplate() : ''}
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
-        ${mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
+        ${!preview && mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
         <nav class="dock" aria-label="Dashboard Navigation">
           ${tabs.map((tab, index) => this._tabTemplate(tab, index)).join('')}
           ${profileEnabled ? this._profileTemplate() : ''}
@@ -210,9 +228,12 @@ class NavDockCard extends HTMLElement {
       .stack { position:fixed; z-index:6; display:flex; flex-direction:column; gap:8px; pointer-events:none; transition:width .2s ease,bottom .2s ease; }
       .stack.floating{left:50%;bottom:${bottom}px;width:min(calc(100vw - 24px),var(--nd-max-width));transform:translateX(-50%)}
       .stack.docked{left:0;right:0;bottom:0;width:100%;transform:none;gap:6px}
+      .stack.preview{position:relative;z-index:0;left:auto;right:auto;bottom:auto;width:min(100%,var(--nd-max-width));transform:none;margin:8px auto;pointer-events:none}
+      .preview .dock,.preview .tab{pointer-events:none}
+      .preview.docked .dock{border-radius:var(--nd-radius);padding-bottom:6px}
       .docked .dock{width:100%;border-radius:var(--nd-radius) var(--nd-radius) 0 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
-      .docked .compact,.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}
-      .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:0 9px 28px rgba(0,0,0,.24),0 2px 8px rgba(0,0,0,.16); }
+      .docked .compact{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-panel-width));align-self:center}
+      .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24); }
       .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
       .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
       .tab { min-width:0; flex:1 1 0; height:calc(var(--nd-height) - 12px); padding:5px 4px; border:0; border-radius:999px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
@@ -237,20 +258,21 @@ class NavDockCard extends HTMLElement {
       .icon-btn { width:42px; height:42px; border:0; border-radius:50%; display:grid; place-items:center; cursor:pointer; color:var(--primary-text-color); background:transparent; }
       .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px rgba(0,0,0,.18); }
       .icon-btn ha-icon { width:24px; height:24px; }
-      .expanded { border-radius:var(--nd-radius); padding:18px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
-      .expanded-head { display:grid; grid-template-columns:82px minmax(0,1fr) 40px; gap:14px; align-items:center; }
-      .expanded .cover { width:82px; height:82px; border-radius:22px; }
-      .expanded .title { font-size:17px; }
+      .expanded { width:min(calc(100vw - 24px),var(--nd-panel-width));align-self:center;border-radius:var(--nd-radius); padding:22px; animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1); transform-origin:bottom center; }
+      .expanded-head { display:grid; grid-template-columns:96px minmax(0,1fr) 40px; gap:16px; align-items:center; }
+      .expanded .cover { width:96px; height:96px; border-radius:26px; }
+      .expanded .title { font-size:19px; }
       .expanded .subtitle { margin-top:6px; font-size:13px; }
       .timeline { margin-top:18px; }
       input[type=range] { width:100%; accent-color:var(--nd-accent); cursor:pointer; }
       .times { display:flex; justify-content:space-between; color:var(--secondary-text-color); font-size:10px; margin-top:2px; }
       .large-controls { display:flex; justify-content:center; align-items:center; gap:20px; margin:13px 0 7px; }
       .large-controls .icon-btn { width:46px; height:46px; }
-      .large-controls .primary { width:58px; height:58px; }
+      .large-controls .primary { width:66px; height:66px; }
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
       .profile-panel{border-radius:var(--nd-radius);padding:18px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-head{display:grid;grid-template-columns:58px 1fr 40px;gap:13px;align-items:center;margin-bottom:15px}.profile-big-avatar{width:58px;height:58px;border-radius:20px;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft)}.profile-big-avatar img{width:100%;height:100%;object-fit:cover}.profile-big-avatar ha-icon{width:30px;height:30px;color:var(--nd-accent)}.profile-name{font-size:18px;font-weight:780}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:4px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.info-tile{min-width:0;padding:13px;border-radius:20px;background:var(--nd-surface-soft)}.info-icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface)}.info-icon ha-icon{width:20px}.info-label{margin-top:9px;font-size:11px;color:var(--secondary-text-color)}.info-value{margin-top:3px;font-size:13px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-entities{display:grid;gap:7px;margin-top:12px}.profile-entity{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 12px;border:0;border-radius:18px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent)}.entity-name{font-size:13px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-state{font-size:12px;font-weight:720;color:var(--nd-accent)}
+      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));align-self:center;padding:22px;max-height:min(620px,calc(100vh - 120px))}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
