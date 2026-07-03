@@ -3,7 +3,7 @@
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
 Stand: 3. Juli 2026  
-Kartenversion: `0.7.0`
+Kartenversion: `0.7.1`
 
 ## Versionierungs-Policy
 

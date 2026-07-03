@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.0';
+const ND_VERSION = '0.7.1';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -124,9 +124,9 @@ class NavDockCard extends HTMLElement {
     this._hass = value;
     const media = this._getActiveMedia();
     const signature = this._mediaCollectionSignature();
-    const profileSignature = JSON.stringify(this._getProfileData());
-    const profileEntitiesSignature = this._profileEntitiesSignature();
-    if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || profileSignature !== this._lastProfileSignature || (this._profileOpen && profileEntitiesSignature !== this._lastProfileEntitiesSignature)) {
+    const profileSignature = this._profileOpen ? JSON.stringify(this._getProfileData()) : null;
+    const profileEntitiesSignature = this._profileOpen ? this._profileEntitiesSignature() : null;
+    if (!this.shadowRoot.firstChild || signature !== this._lastMediaSignature || (this._profileOpen && (profileSignature !== this._lastProfileSignature || profileEntitiesSignature !== this._lastProfileEntitiesSignature))) {
       this._render();
     } else {
       this._activeMedia = media;
@@ -177,10 +177,11 @@ class NavDockCard extends HTMLElement {
   _mediaSignature(entity) {
     if (!entity) return 'none';
     const a = entity.attributes || {};
+    const picturePath = String(a.entity_picture || '').split('?')[0];
     return JSON.stringify([
       entity.entity_id, entity.state, a.media_title, a.media_artist,
-      a.media_series_title, a.app_name, a.source, a.entity_picture,
-      a.media_duration, a.volume_level, a.is_volume_muted,
+      a.media_series_title, a.app_name, a.source, picturePath,
+      a.media_duration,
     ]);
   }
 
@@ -458,7 +459,17 @@ class NavDockCard extends HTMLElement {
     }));
     this.shadowRoot.querySelector('[data-source]')?.addEventListener('change', (event) => this._call('select_source', { source: event.target.value }));
     this.shadowRoot.querySelector('[data-seek]')?.addEventListener('change', (event) => this._call('media_seek', { seek_position: Number(event.target.value) }));
-    this.shadowRoot.querySelector('[data-volume]')?.addEventListener('change', (event) => this._call('volume_set', { volume_level: Number(event.target.value) / 100 }));
+    const volumeSlider = this.shadowRoot.querySelector('[data-volume]');
+    if (volumeSlider) {
+      volumeSlider.addEventListener('pointerdown', () => { this._volumeSliderActive = true; });
+      volumeSlider.addEventListener('pointerup', () => { this._volumeSliderActive = false; });
+      volumeSlider.addEventListener('change', (event) => this._call('volume_set', { volume_level: Number(event.target.value) / 100 }));
+    }
+    const compactCover = this.shadowRoot.querySelector('.compact .cover');
+    if (compactCover && this._activeMedia?.attributes.entity_picture) {
+      compactCover.addEventListener('load', () => {});
+      compactCover.src = this._activeMedia.attributes.entity_picture;
+    }
     this.shadowRoot.querySelectorAll('[data-swipe-media]').forEach((element) => this._bindMediaSwipe(element));
     clearInterval(this._positionTimer);
     if (this._expanded && this._activeMedia?.state === 'playing') this._positionTimer = setInterval(() => this._updatePosition(), 1000);
@@ -498,11 +509,21 @@ class NavDockCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('.live-subtitle').forEach((node) => { node.textContent = subtitle; });
     const playIcon = entity.state === 'playing' ? 'mdi:pause' : 'mdi:play';
     this.shadowRoot.querySelectorAll('[data-service="toggle_playback"] ha-icon').forEach((node) => node.setAttribute('icon', playIcon));
+    const volumeSlider = this.shadowRoot.querySelector('[data-volume]');
+    if (volumeSlider && !this._volumeSliderActive) {
+      const volume = Math.round((Number(entity.attributes.volume_level) || 0) * 100);
+      volumeSlider.value = volume;
+    }
+    const volumeIcon = this.shadowRoot.querySelector('.volume ha-icon');
+    if (volumeIcon) {
+      const icon = entity.attributes.is_volume_muted ? 'mdi:volume-off' : 'mdi:volume-medium';
+      volumeIcon.setAttribute('icon', icon);
+    }
   }
 }
 
 class NavDockCardEditor extends HTMLElement {
-  constructor() { super(); this.attachShadow({ mode: 'open' }); this._editorPage = 'dock'; }
+  constructor() { super(); this.attachShadow({ mode: 'open' }); this._editorPage = 'dock'; this._selfUpdate = false; }
   set hass(value) {
     this._hass = value;
     if (!this.shadowRoot.firstChild) this._render();
@@ -511,7 +532,7 @@ class NavDockCardEditor extends HTMLElement {
       this.shadowRoot.querySelectorAll('ha-icon-picker').forEach((picker) => { picker.hass = value; });
     }
   }
-  setConfig(config) { this._config = { tabs: ND_DEFAULT_TABS.map((tab) => ({ ...tab })), ...config }; this._render(); }
+  setConfig(config) { this._config = { tabs: ND_DEFAULT_TABS.map((tab) => ({ ...tab })), ...config }; if (!this._selfUpdate) this._render(); this._selfUpdate = false; }
 
   _render() {
     if (!this._config || !this._hass) return;
@@ -540,25 +561,50 @@ class NavDockCardEditor extends HTMLElement {
     return `<details class="tabedit" data-index="${index}"><summary><span class="dragdot"><ha-icon icon="${ndEsc(tab.icon || 'mdi:circle-outline')}"></ha-icon></span><span class="tabnumber"><span>${ndEsc(tab.label || `Tab ${index + 1}`)}</span></span></summary><div class="tabbody"><div class="tabhead"><span class="actions"><button data-up title="Nach oben">↑</button><button data-down title="Nach unten">↓</button><button data-delete title="Löschen">✕</button></span></div><div class="row"><label class="field">Name<input data-tab-key="label" value="${ndEsc(tab.label || '')}"></label><label class="field">Icon<div class="icon-choice"><span class="icon-preview"><ha-icon icon="${ndEsc(tab.icon || 'mdi:circle-outline')}"></ha-icon></span><ha-icon-picker data-tab-icon="icon" value="${ndEsc(tab.icon || '')}"></ha-icon-picker></div></label><label class="field">Aktives Icon<div class="icon-choice"><span class="icon-preview"><ha-icon icon="${ndEsc(tab.active_icon || tab.icon || 'mdi:circle')}"></ha-icon></span><ha-icon-picker data-tab-icon="active_icon" value="${ndEsc(tab.active_icon || '')}"></ha-icon-picker></div></label><label class="field">Navigationspfad<input data-tab-key="path" value="${ndEsc(tab.path || '')}" placeholder="/dashboard/view"></label></div></div></details>`;
   }
 
-  _emit(next) { this._config = next; ndFire(this, 'config-changed', { config: next }); }
+  _emit(next) { this._config = next; this._selfUpdate = true; ndFire(this, 'config-changed', { config: next }); }
   _bind() {
     this.shadowRoot.querySelectorAll('[data-editor-page]').forEach((button) => button.addEventListener('click', () => { this._editorPage = button.dataset.editorPage; this._render(); }));
     this.shadowRoot.querySelectorAll('[data-key]').forEach((input) => input.addEventListener('change', () => {
-      const numeric = input.type === 'number'; this._emit({ ...this._config, [input.dataset.key]: numeric ? Number(input.value) : input.value });
+      const numeric = input.type === 'number';
+      if (numeric && input.value === '') {
+        const next = { ...this._config };
+        delete next[input.dataset.key];
+        this._emit(next);
+      } else {
+        this._emit({ ...this._config, [input.dataset.key]: numeric ? Number(input.value) : input.value });
+      }
     }));
     this.shadowRoot.querySelectorAll('[data-check]').forEach((input) => input.addEventListener('change', () => this._emit({ ...this._config, [input.dataset.check]: input.checked })));
     this.shadowRoot.querySelectorAll('[data-radius]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, radius: Number(button.dataset.radius) }); this._render(); }));
     this.shadowRoot.querySelectorAll('[data-placement-key]').forEach((button) => button.addEventListener('click', () => { this._emit({ ...this._config, [button.dataset.placementKey]: button.dataset.placement }); this._render(); }));
-    this.shadowRoot.querySelectorAll('[data-media-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const players = [...(this._config.media_players || [])]; players[Number(picker.dataset.mediaIndex)] = event.detail.value; this._emit({ ...this._config, media_players: players.filter(Boolean) }); }));
+    this.shadowRoot.querySelectorAll('[data-media-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => {
+      const players = [...(this._config.media_players || [])];
+      players[Number(picker.dataset.mediaIndex)] = event.detail.value;
+      const filtered = players.filter(Boolean);
+      this._emit({ ...this._config, media_players: filtered });
+      if (filtered.length < players.length) this._render();
+    }));
     this.shadowRoot.querySelectorAll('[data-remove-media]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeMedia); this._emit({ ...this._config, media_players: (this._config.media_players || []).filter((_,i)=>i!==index) }); this._render(); }));
     this.shadowRoot.querySelector('[data-add-media]')?.addEventListener('click', () => { this._emit({ ...this._config, media_players: [...(this._config.media_players || []), ''] }); this._render(); });
-    this.shadowRoot.querySelectorAll('[data-profile-entity-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const entities = [...(this._config.profile_entities || [])]; entities[Number(picker.dataset.profileEntityIndex)] = event.detail.value; this._emit({ ...this._config, profile_entities: entities.filter(Boolean) }); }));
+    this.shadowRoot.querySelectorAll('[data-profile-entity-index]').forEach((picker) => picker.addEventListener('value-changed', (event) => {
+      const entities = [...(this._config.profile_entities || [])];
+      entities[Number(picker.dataset.profileEntityIndex)] = event.detail.value;
+      const filtered = entities.filter(Boolean);
+      this._emit({ ...this._config, profile_entities: filtered });
+      if (filtered.length < entities.length) this._render();
+    }));
     this.shadowRoot.querySelectorAll('[data-remove-profile-entity]').forEach((button) => button.addEventListener('click', () => { const index = Number(button.dataset.removeProfileEntity); this._emit({ ...this._config, profile_entities: (this._config.profile_entities || []).filter((_,i)=>i!==index) }); this._render(); }));
     this.shadowRoot.querySelector('[data-add-profile-entity]')?.addEventListener('click', () => { this._emit({ ...this._config, profile_entities: [...(this._config.profile_entities || []), ''] }); this._render(); });
     this.shadowRoot.querySelectorAll('.tabedit').forEach((box) => {
       const index = Number(box.dataset.index);
       box.querySelectorAll('[data-tab-key]').forEach((input) => input.addEventListener('change', () => { const tabs = this._config.tabs.map((t) => ({ ...t })); tabs[index][input.dataset.tabKey] = input.value; this._emit({ ...this._config, tabs }); }));
-      box.querySelectorAll('[data-tab-icon]').forEach((picker) => picker.addEventListener('value-changed', (event) => { const tabs = this._config.tabs.map((t) => ({ ...t })); tabs[index][picker.dataset.tabIcon] = event.detail.value; this._emit({ ...this._config, tabs }); }));
+      box.querySelectorAll('[data-tab-icon]').forEach((picker) => picker.addEventListener('value-changed', (event) => {
+        const tabs = this._config.tabs.map((t) => ({ ...t }));
+        tabs[index][picker.dataset.tabIcon] = event.detail.value;
+        this._emit({ ...this._config, tabs });
+        const preview = picker.closest('.icon-choice')?.querySelector('.icon-preview ha-icon');
+        if (preview) preview.setAttribute('icon', event.detail.value || 'mdi:circle-outline');
+      }));
       box.querySelector('[data-delete]').addEventListener('click', () => { const tabs = this._config.tabs.filter((_, i) => i !== index); this._emit({ ...this._config, tabs }); this._render(); });
       box.querySelector('[data-up]').addEventListener('click', () => this._move(index, -1));
       box.querySelector('[data-down]').addEventListener('click', () => this._move(index, 1));
