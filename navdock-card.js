@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.8';
+const ND_VERSION = '0.7.9';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -307,12 +307,13 @@ class NavDockCard extends HTMLElement {
       .stack.preview{position:relative;z-index:0;left:auto;right:auto;bottom:auto;width:min(100%,var(--nd-max-width));transform:none;margin:8px auto;pointer-events:none}
       .stack
       .stack
-      .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{position:fixed;top:calc(env(safe-area-inset-top) + 14px);bottom:calc(${bottom}px + env(safe-area-inset-bottom) + var(--nd-height) + 12px);left:50%;transform:translateX(-50%);width:calc(100vw - 24px);max-height:none;min-height:0;height:auto;border:1px solid var(--nd-border);box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24));border-radius:24px;padding:16px;overflow:auto;z-index:101}
+      .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{position:fixed;top:calc(env(safe-area-inset-top) + 10px);bottom:calc(${bottom}px + env(safe-area-inset-bottom) + var(--nd-height) + 8px);left:50%;transform:translateX(-50%);width:calc(100vw - 20px);max-height:none;border:1px solid var(--nd-border);box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24));border-radius:24px;padding:16px;overflow:auto;z-index:101}
       .stack.mobile-sheet.closing .compact{animation:none}
       .preview .dock,.preview .tab{pointer-events:none}
       .preview.docked .dock{border-radius:var(--nd-radius);padding-bottom:6px}
       .docked .dock{width:100%;border-radius:var(--nd-radius) var(--nd-radius) 0 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
       .docked .compact{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-panel-width));align-self:center}
+      .floating:not(.mobile-sheet) .expanded,.floating:not(.mobile-sheet) .profile-panel{position:fixed;left:50%;transform:translateX(-50%);max-width:420px;max-height:70vh;bottom:calc(var(--nd-height) + 24px)}
       .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)); }
       .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
       .dock { min-height:var(--nd-height); border-radius:999px; padding:10px 8px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; background:var(--nd-dock-bg); backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); border:1px solid var(--nd-dock-border); box-shadow:var(--nd-dock-shadow) }
@@ -339,7 +340,7 @@ class NavDockCard extends HTMLElement {
       .icon-btn { width:42px; height:42px; border:0; border-radius:50%; display:grid; place-items:center; cursor:pointer; color:var(--primary-text-color); background:transparent; }
       .icon-btn.primary { width:50px; height:50px; color:var(--text-primary-color,#fff); background:var(--nd-accent); box-shadow:0 7px 17px rgba(0,0,0,.18); }
       .icon-btn ha-icon { width:24px; height:24px; }
-      .expanded { width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:390px;align-self:center;border-radius:var(--nd-radius); padding:24px; animation:nd-pop .16s ease-out; transform-origin:bottom center;display:flex;flex-direction:column;justify-content:space-between;touch-action:pan-y;position:relative; }
+      .expanded { width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:390px;align-self:center;border-radius:var(--nd-radius); padding:24px; animation:nd-pop .16s ease-out; transform-origin:bottom center;display:flex;flex-direction:column;justify-content:space-between;touch-action:pan-y; }
       .expanded [data-collapse]{position:absolute;top:14px;right:14px;z-index:10}
       .expanded-head { display:grid; grid-template-columns:96px minmax(0,1fr) 40px; gap:16px; align-items:center; }
       .expanded .cover { width:96px; height:96px; border-radius:26px; }
@@ -354,9 +355,8 @@ class NavDockCard extends HTMLElement {
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
       .media-kind{display:inline-flex;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:var(--nd-surface-soft);color:var(--nd-accent);font-size:10px;font-weight:750}.media-switcher{display:flex;align-items:center;gap:5px;margin-top:7px}.media-dot{width:4px;height:4px;min-width:4px;padding:0;border:0;border-radius:50%;background:var(--secondary-text-color);opacity:.4;cursor:pointer}.media-dot.active{width:5px;opacity:.8}.source-picker{display:grid;gap:7px;margin:16px 0;font-size:11px;font-weight:700;color:var(--secondary-text-color)}.source-picker select{width:100%;height:48px;padding:0 14px;border:1px solid var(--nd-border);border-radius:16px;color:var(--primary-text-color);background:var(--nd-surface-soft);font:inherit}.compact{touch-action:pan-y}
-      .profile-panel{border-radius:var(--nd-radius);padding:16px;animation:nd-pop .16s ease-out;transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto;position:relative}
       .profile-panel [data-close-profile]{position:absolute;top:14px;right:14px;z-index:10}.profile-header{display:grid;grid-template-columns:64px 1fr 40px;gap:14px;align-items:center;margin-bottom:18px}.profile-avatar-large{width:64px;height:64px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft);flex-shrink:0}.profile-avatar-large img{width:100%;height:100%;object-fit:cover}.profile-avatar-large ha-icon{width:32px;height:32px;color:var(--nd-accent)}.profile-info{min-width:0}.profile-name{font-size:18px;font-weight:780;line-height:1.2}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:2px;line-height:1.3}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.info-tile{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--nd-surface-soft)}.info-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface);flex-shrink:0}.info-icon ha-icon{width:22px}.info-text{min-width:0}.info-label{font-size:10px;color:var(--secondary-text-color);font-weight:700;text-transform:uppercase;letter-spacing:.5px}.info-value{margin-top:3px;font-size:14px;font-weight:720;line-height:1.3}.profile-entities{display:grid;gap:9px}.profile-entity{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;width:100%;padding:11px;border:0;border-radius:14px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent);width:20px}.entity-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.entity-state{font-size:13px;font-weight:720;color:var(--nd-accent);white-space:nowrap}
-      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;max-height:min(620px,calc(100vh - 120px));display:flex;flex-direction:column}
+      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;border-radius:var(--nd-radius);padding:16px;animation:nd-pop .16s ease-out;transform-origin:bottom center;display:flex;flex-direction:column}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       .closing .compact, .closing .expanded, .closing .profile-panel { animation:none !important; }
       @keyframes nd-pop{from{opacity:0}to{opacity:1}}

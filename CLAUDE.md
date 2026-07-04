@@ -3,7 +3,7 @@
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
 Stand: 4. Juli 2026  
-Kartenversion: `0.7.8`
+Kartenversion: `0.7.9`
 
 ## Versionierungs-Policy
 
@@ -247,6 +247,7 @@ dfe52b0 Fix theme media updates and user avatar
     haben IMMER Vorrang vor mobilen Defaults. Defaults greifen NUR, wenn kein Wert gesetzt.
     Mobile Defaults: width 336px, height 78px, bottom 28px.
   - Animationen: Sanfte Opacity-Fade (nd-pop) statt Translate/Scale.
+- **CSS-Regel-Eindeutigkeit (v0.7.9):** `.profile-panel` und `.expanded` dürfen JEWEILS nur eine Grundregel haben. Doppelte Regeln (v0.7.5–0.7.8) führten zu Konflikten: alte Regel mit `position:relative; max-height:560px` überschrieb mobile-sheet Positionierung. **Fix:** Alle Positionierungs-Werte (position, top, bottom, max-height, width) kommen exklusiv aus der jeweiligen Kontext-Regel (`.stack.mobile-sheet`, `.floating:not(.mobile-sheet)`, `.docked`). Basis-Regel hat nur padding, border-radius, animation, display, flex-direction.
   - Desktop: IMMER Floating-Modus. Docked ist mobil-exklusiv.
   - Laufzeitansicht darf im Dashboard-Editor niemals als Fixed-Overlay erscheinen.
 - Design soll klar, einfach und Material-You-inspiriert sein, nicht mit vielen
