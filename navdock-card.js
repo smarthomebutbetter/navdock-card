@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.7';
+const ND_VERSION = '0.7.8';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -273,13 +273,18 @@ class NavDockCard extends HTMLElement {
     const shadowStyle = isDarkMode
       ? '0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)'
       : '0 6px 20px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08)';
+    const dockBg = isDarkMode ? 'rgba(18,19,25,0.92)' : 'rgba(255,255,255,0.92)';
+    const dockBorder = isDarkMode ? '1px solid rgba(255,255,255,0.035)' : '1px solid rgba(0,0,0,0.06)';
+    const dockShadow = isDarkMode
+      ? '0 -6px 18px rgba(0,0,0,.18), 0 8px 22px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.025)'
+      : '0 -6px 18px rgba(0,0,0,.08), 0 8px 22px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.40)';
     const isMobileSheet = isMobile && (this._expanded || this._profileOpen);
     const closingClass = this._justClosed ? 'closing' : '';
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${!preview && (this._expanded || this._profileOpen) && !isMobileSheet ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${isMobileSheet ? 'mobile-sheet' : ''} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''} ${closingClass}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle}">
+      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${isMobileSheet ? 'mobile-sheet' : ''} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''} ${closingClass}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle};--nd-dock-bg:${dockBg};--nd-dock-border:${dockBorder};--nd-dock-shadow:${dockShadow}">
         ${this._profileOpen ? this._profilePanelTemplate(isMobileSheet) : ''}
         ${this._expanded && media ? this._expandedTemplate(media, isMobileSheet) : ''}
         ${!preview && mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
@@ -310,7 +315,7 @@ class NavDockCard extends HTMLElement {
       .docked .compact{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-panel-width));align-self:center}
       .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)); }
       .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
-      .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
+      .dock { min-height:var(--nd-height); border-radius:999px; padding:10px 8px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; background:var(--nd-dock-bg); backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); border:1px solid var(--nd-dock-border); box-shadow:var(--nd-dock-shadow) }
       .tab { min-width:0; flex:1 1 0; height:calc(var(--nd-height) - 12px); padding:5px 4px; border:0; border-radius:999px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
       .tab:active { transform:scale(.94); }
       .tab.active { color:var(--nd-accent); background:var(--nd-surface-soft); box-shadow:inset 0 0 0 1px var(--nd-border); }
