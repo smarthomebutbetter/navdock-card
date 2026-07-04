@@ -3,7 +3,7 @@
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
 Stand: 4. Juli 2026  
-Kartenversion: `0.7.2`
+Kartenversion: `0.7.3`
 
 ## Versionierungs-Policy
 
@@ -91,8 +91,8 @@ type: custom:navdock-card
 - Verwendet HA-Variablen für Kartenfläche, Text, Sekundärfläche,
   Primärfarbe, Randbreite und Eckenradius.
 - Formoptionen `Theme`, `Rund` und `Pill`.
-- Eigener Tiefenschatten und eine dezente helle Kontur, damit die schwebende
-  Dock auch bei dunklen Themes vom scrollenden Inhalt getrennt bleibt.
+- **Theme-abhängige Schatten:** Dark Mode mit weißem Innenring + kräftigem Schatten;
+  Light Mode mit weichem Schatten ohne Ring. Prüfung via `hass.themes.darkMode`.
 - Schatten ist abschaltbar.
 - Keine frei einzugebende Akzentfarbe mehr; Akzent folgt `--primary-color`.
 
@@ -139,13 +139,17 @@ type: custom:navdock-card
 - Profil-Tab kann ein ausklappbares Panel statt Navigation öffnen.
 - Avatar wird zuerst aus einer manuellen URL, dann aus der mit dem aktuellen
   Benutzer verknüpften `person`-Entität und danach aus Benutzerdaten ermittelt.
+- **Redesign v0.7.3:** Großes rundes Avatar (border-radius 50%), einheitliche
+  Info-Kacheln mit Icon-Feld und Typografie, symmetrisches Spacing-Raster.
 - Optionale Informationskacheln:
   - Benutzerrolle
   - Home-Assistant-Name und Version
   - Online-/Offline-Status
-  - Browser-/Geräteklasse und Viewport
+  - Geräteklasse und Viewport
 - Frei konfigurierbare HA-Entitäten mit Zustand.
 - Entitätstipp öffnet den HA-Detaildialog.
+- **Panel-Zustand visuell:** Dezenter 2px-Accent-Ring um Avatar, wenn Panel offen
+  und `profile_panel_enabled` aktiv. Keine doppelte Aktiv-Pille.
 
 ### Visueller Editor
 

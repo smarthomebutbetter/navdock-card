@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.2';
+const ND_VERSION = '0.7.3';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -265,11 +265,15 @@ class NavDockCard extends HTMLElement {
       : 'var(--ha-card-border-radius,var(--card-border-radius,28px))';
     const mediaOffset = 78;
 
+    const isDarkMode = Boolean(this._hass?.themes?.darkMode);
+    const shadowStyle = isDarkMode
+      ? '0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)'
+      : '0 6px 20px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08)';
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${!preview && (this._expanded || this._profileOpen) ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px">
+      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle}">
         ${this._profileOpen ? this._profilePanelTemplate() : ''}
         ${this._expanded && media ? this._expandedTemplate(media) : ''}
         ${!preview && mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
@@ -296,7 +300,7 @@ class NavDockCard extends HTMLElement {
       .preview.docked .dock{border-radius:var(--nd-radius);padding-bottom:6px}
       .docked .dock{width:100%;border-radius:var(--nd-radius) var(--nd-radius) 0 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
       .docked .compact{width:min(calc(100vw - 16px),var(--nd-max-width));align-self:center}.docked .expanded,.docked .profile-panel{width:min(calc(100vw - 16px),var(--nd-panel-width));align-self:center}
-      .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24); }
+      .dock,.compact,.expanded,.profile-panel { pointer-events:auto; color:var(--primary-text-color); background:var(--nd-surface); border:var(--ha-card-border-width,1px) solid var(--nd-border); box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)); }
       .no-shadow .dock,.no-shadow .compact,.no-shadow .expanded,.no-shadow .profile-panel{box-shadow:none}
       .dock { min-height:var(--nd-height); border-radius:var(--nd-radius); padding:6px; display:flex; align-items:center; justify-content:space-around; gap:2px; overflow:hidden; }
       .tab { min-width:0; flex:1 1 0; height:calc(var(--nd-height) - 12px); padding:5px 4px; border:0; border-radius:999px; color:var(--secondary-text-color); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; transition:transform .18s ease,background .18s ease,color .18s ease; }
@@ -306,6 +310,7 @@ class NavDockCard extends HTMLElement {
       .tab span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--nd-label-size); font-weight:650; }
       .hide-labels .tab>span:not(.avatar){display:none}.hide-labels .tab{gap:0}
       .profile .avatar { width:38px; height:38px; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--nd-surface-soft); }
+      .profile.profile-ring-active .avatar { box-shadow:inset 0 0 0 2px var(--nd-accent); }
       .avatar img { width:100%; height:100%; object-fit:cover; }
       .avatar ha-icon { width:23px; height:23px; }
       .profile span { display:none; }
@@ -335,13 +340,13 @@ class NavDockCard extends HTMLElement {
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
       .media-kind{display:inline-flex;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:var(--nd-surface-soft);color:var(--nd-accent);font-size:10px;font-weight:750}.media-switcher{display:flex;align-items:center;gap:5px;margin-top:7px}.media-dot{width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:50%;background:var(--secondary-text-color);opacity:.35;cursor:pointer}.media-dot.active{width:18px;border-radius:5px;background:var(--nd-accent);opacity:1}.source-picker{display:grid;gap:7px;margin:16px 0;font-size:11px;font-weight:700;color:var(--secondary-text-color)}.source-picker select{width:100%;height:48px;padding:0 14px;border:1px solid var(--nd-border);border-radius:16px;color:var(--primary-text-color);background:var(--nd-surface-soft);font:inherit}.compact{touch-action:pan-y}
-      .profile-panel{border-radius:var(--nd-radius);padding:18px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-head{display:grid;grid-template-columns:58px 1fr 40px;gap:13px;align-items:center;margin-bottom:15px}.profile-big-avatar{width:58px;height:58px;border-radius:20px;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft)}.profile-big-avatar img{width:100%;height:100%;object-fit:cover}.profile-big-avatar ha-icon{width:30px;height:30px;color:var(--nd-accent)}.profile-name{font-size:18px;font-weight:780}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:4px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.info-tile{min-width:0;padding:13px;border-radius:20px;background:var(--nd-surface-soft)}.info-icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface)}.info-icon ha-icon{width:20px}.info-label{margin-top:9px;font-size:11px;color:var(--secondary-text-color)}.info-value{margin-top:3px;font-size:13px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-entities{display:grid;gap:7px;margin-top:12px}.profile-entity{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:10px 12px;border:0;border-radius:18px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent)}.entity-name{font-size:13px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-state{font-size:12px;font-weight:720;color:var(--nd-accent)}
-      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;padding:22px;max-height:min(620px,calc(100vh - 120px))}
+      .profile-panel{border-radius:var(--nd-radius);padding:16px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-header{display:grid;grid-template-columns:64px 1fr 40px;gap:14px;align-items:center;margin-bottom:18px}.profile-avatar-large{width:64px;height:64px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft);flex-shrink:0}.profile-avatar-large img{width:100%;height:100%;object-fit:cover}.profile-avatar-large ha-icon{width:32px;height:32px;color:var(--nd-accent)}.profile-info{min-width:0}.profile-name{font-size:18px;font-weight:780;line-height:1.2}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:2px;line-height:1.3}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.info-tile{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--nd-surface-soft)}.info-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface);flex-shrink:0}.info-icon ha-icon{width:22px}.info-text{min-width:0}.info-label{font-size:10px;color:var(--secondary-text-color);font-weight:700;text-transform:uppercase;letter-spacing:.5px}.info-value{margin-top:3px;font-size:14px;font-weight:720;line-height:1.3}.profile-entities{display:grid;gap:9px}.profile-entity{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;width:100%;padding:11px;border:0;border-radius:14px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent);width:20px}.entity-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.entity-state{font-size:13px;font-weight:720;color:var(--nd-accent);white-space:nowrap}
+      .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;max-height:min(620px,calc(100vh - 120px))}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
       @keyframes nd-fade { from { opacity:0; } }
-      @media (max-width:430px) { .stack.floating{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{min-height:350px;padding:18px}.expanded-head{grid-template-columns:82px minmax(0,1fr) 36px}.expanded .cover{width:82px;height:82px}.profile-panel{min-height:330px;padding:18px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
+      @media (max-width:430px) { .stack.floating{width:calc(100vw - 14px);bottom:max(8px,env(safe-area-inset-bottom));}.dock{min-height:64px}.tab{height:52px}.tab span{font-size:10px}.expanded{min-height:350px;padding:18px}.expanded-head{grid-template-columns:82px minmax(0,1fr) 36px}.expanded .cover{width:82px;height:82px}.profile-panel{min-height:330px;padding:14px}.profile-header{grid-template-columns:54px 1fr 36px;gap:12px;margin-bottom:14px}.profile-avatar-large{width:54px;height:54px}.profile-avatar-large ha-icon{width:28px}.info-grid{gap:8px;margin-bottom:12px}.info-tile{gap:10px;padding:10px}.info-icon{width:40px;height:40px;border-radius:12px}.info-icon ha-icon{width:20px}.compact{grid-template-columns:46px minmax(0,1fr) auto}.compact .cover{width:46px;height:46px}.compact .skip{display:none} }
       @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
     `;
   }
@@ -356,9 +361,11 @@ class NavDockCard extends HTMLElement {
   }
 
   _profileTemplate() {
-    const active = this._profileOpen || location.pathname.startsWith(this._config.profile_path || '/profile');
+    const panelEnabled = this._config.profile_panel_enabled !== false;
+    const active = !panelEnabled && location.pathname.startsWith(this._config.profile_path || '/profile');
     const { picture, userName } = this._getProfileData();
-    return `<button class="tab profile ${active ? 'active' : ''}" data-profile title="${ndEsc(userName)}">
+    const avatarClass = panelEnabled && this._profileOpen ? 'profile-ring-active' : '';
+    return `<button class="tab profile ${active ? 'active' : ''} ${avatarClass}" data-profile title="${ndEsc(userName)}">
       <span class="avatar">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span>
       <span>${ndEsc(this._config.profile_label || 'Profil')}</span>
     </button>`;
@@ -388,15 +395,15 @@ class NavDockCard extends HTMLElement {
     if (this._config.profile_show_system !== false) tiles.push(this._infoTile('mdi:home-assistant', this._hass.config?.location_name || 'Home Assistant', `Version ${this._hass.config?.version || '–'}`));
     if (this._config.profile_show_connection !== false) tiles.push(this._infoTile(navigator.onLine ? 'mdi:lan-connect' : 'mdi:lan-disconnect', 'Verbindung', navigator.onLine ? 'Online' : 'Offline'));
     if (this._config.profile_show_device !== false) {
-      const device = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'Apple Mobil' : /Windows/i.test(navigator.userAgent) ? 'Windows' : /Mac/i.test(navigator.userAgent) ? 'macOS' : 'Browser';
-      tiles.push(this._infoTile('mdi:devices', 'Dieses Gerät', `${device} · ${window.innerWidth}×${window.innerHeight}`));
+      const device = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'Apple' : /Windows/i.test(navigator.userAgent) ? 'Windows' : /Mac/i.test(navigator.userAgent) ? 'macOS' : 'Browser';
+      tiles.push(this._infoTile('mdi:devices', 'Gerät', `${device} · ${window.innerWidth}×${window.innerHeight}`));
     }
     const entities = (this._config.profile_entities || []).map((id) => this._hass.states[id]).filter(Boolean);
-    return `<article class="profile-panel" aria-label="Profilinformationen"><div class="profile-head"><span class="profile-big-avatar">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</span><div><div class="profile-name">${ndEsc(userName)}</div><div class="profile-role">${ndEsc(this._hass.config?.location_name || 'Home Assistant')}</div></div><button class="icon-btn" data-close-profile aria-label="Schließen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div><div class="info-grid">${tiles.join('')}</div>${entities.length ? `<div class="profile-entities">${entities.map((entity) => this._profileEntityTemplate(entity)).join('')}</div>` : ''}</article>`;
+    return `<article class="profile-panel" aria-label="Profilinformationen"><div class="profile-header"><div class="profile-avatar-large">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</div><div class="profile-info"><div class="profile-name">${ndEsc(userName)}</div><div class="profile-role">${ndEsc(this._hass.config?.location_name || 'Home Assistant')}</div></div><button class="icon-btn" data-close-profile aria-label="Schließen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div>${tiles.length ? `<div class="info-grid">${tiles.join('')}</div>` : ''}${entities.length ? `<div class="profile-entities">${entities.map((entity) => this._profileEntityTemplate(entity)).join('')}</div>` : ''}</article>`;
   }
 
   _infoTile(icon, label, value) {
-    return `<div class="info-tile"><span class="info-icon"><ha-icon icon="${icon}"></ha-icon></span><div class="info-label">${ndEsc(label)}</div><div class="info-value">${ndEsc(value)}</div></div>`;
+    return `<div class="info-tile"><div class="info-icon"><ha-icon icon="${icon}"></ha-icon></div><div class="info-text"><div class="info-label">${ndEsc(label)}</div><div class="info-value">${ndEsc(value)}</div></div></div>`;
   }
 
   _profileEntityTemplate(entity) {
