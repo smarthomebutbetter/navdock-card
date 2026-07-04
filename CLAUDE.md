@@ -2,8 +2,8 @@
 
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
-Stand: 3. Juli 2026  
-Kartenversion: `0.7.1`
+Stand: 4. Juli 2026  
+Kartenversion: `0.7.2`
 
 ## Versionierungs-Policy
 
@@ -111,13 +111,17 @@ type: custom:navdock-card
 - Media-Zeile optional ein-/ausschaltbar.
 - Manuell konfigurierbare `media_player`-Entitäten.
 - Optionale automatische Erkennung aller `media_player`-Entitäten.
-- Angezeigt werden aktive Zustände: `playing`, `paused`, `buffering`, `on`.
+- Neue Option `media_exclude`: Liste von entity_ids zum Ignorieren bei Autoerkennung.
+- Neue Option `media_include_on` (Standard: true): Zustand "on" als aktiv zählen.
+- Angezeigt werden aktive Zustände: `playing`, `paused`, `buffering`, `on` (wenn enabled).
 - Spielende Player werden zuerst sortiert.
 - Mehrere aktive Player bilden ein Karussell:
   - Auswahlpunkte zeigen die Anzahl und aktive Position.
   - Horizontales Wischen wechselt den Player.
 - Typheuristik unterscheidet Musik und TV anhand von `device_class`,
   `media_content_type`, App, Quelle und Anzeigename.
+- Neue Option `media_type_overrides`: Objekt `entity_id` → `"music" | "tv"` für manuelle Typüberschreibung.
+- Editor zeigt Dropdown (Auto/Musik/TV) neben jedem manuell gewählten Player.
 - Musik: vorheriger Track, Play/Pause, nächster Track.
 - TV: vorheriger/nächster Kanalbefehl über die entsprechenden
   Media-Player-Dienste und Quellenwahl, wenn `source_list` vorhanden ist.
@@ -180,11 +184,11 @@ type: custom:navdock-card
 3. **Icon-Picker kontrollieren.** `ha-icon-picker` ist ein HA-internes Element.
    Darstellung und Events sollten auf Desktop, Companion-App und Tablet
    getestet werden.
-4. **Media-Autoerkennung kann viele Player finden.** Es werden nur aktive
-   Zustände angezeigt, aber Integrationen interpretieren `on` unterschiedlich.
-   Eventuell später einen Filter für `idle`/`on` oder Ausschlusslisten ergänzen.
-5. **TV-Erkennung ist heuristisch.** Falsch klassifizierte Player benötigen
-   zukünftig eventuell eine manuelle Typüberschreibung pro Entity.
+4. ✅ **Media-Autoerkennung verfeinert.** Neue Optionen `media_exclude` und
+   `media_include_on` ermöglichen präzisere Filterung. TV-Heuristik bleibt,
+   kann aber via `media_type_overrides` pro Player überschrieben werden.
+5. ✅ **TV-Erkennung mit manueller Typüberschreibung.** Neue Option
+   `media_type_overrides`: Objekt entity_id → "music" | "tv".
 6. **Senderwechsel ist integrationsabhängig.** Nicht jeder TV unterstützt
    `media_next_track`, `media_previous_track` oder liefert echte Sender in
    `source_list`.
@@ -194,11 +198,11 @@ type: custom:navdock-card
    Player während des Wischens inaktiv wird oder ein neuer beginnt.
 9. **Panelhöhe testen.** Aktuell Media mindestens `390 px`, mobil `350 px`;
    Profil mindestens `370 px`, mobil `330 px`.
-10. **Barrierefreiheit und Tastatur.** Grundlegende ARIA-Labels sind vorhanden,
-    aber Fokusführung im geöffneten Panel und Escape-Schließen fehlen noch.
-11. **HACS-Releases.** Für saubere Versionsauswahl sollte zukünftig ein echter
-    GitHub-Release-Workflow eingeführt werden. Ein Git-Tag allein reicht für
-    HACS-Versionen nicht aus.
+10. ✅ **Barrierefreiheit und Tastatur.** Escape schließt Panels, Fokusführung
+    im geöffneten Panel auf erstes interaktives Element, Rückfokus auf
+    auslösendem Tab. Klick außerhalb schließt Panels.
+11. ✅ **Release-Automatisierung.** GitHub-Workflow `.github/workflows/release.yml`
+    erstellt automatisch Releases auf Tag-Push mit `generate_release_notes`.
 
 ## 8. Empfohlene nächste Arbeitsschritte
 
