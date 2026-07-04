@@ -3,7 +3,7 @@
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
 Stand: 4. Juli 2026  
-Kartenversion: `0.7.6`
+Kartenversion: `0.7.7`
 
 ## Versionierungs-Policy
 
@@ -237,15 +237,16 @@ dfe52b0 Fix theme media updates and user avatar
 ## 10. Produktentscheidungen aus dem bisherigen Austausch
 
 - Dock bleibt unten; Desktop-Seitenleiste ist derzeit nicht vorgesehen.
-- **Mobil vs. Desktop Darstellung (v0.7.6):**
-  - Mobil: Docked-Modus mit Dock unten; Panels öffnen als **große Popups**.
-  - **Kritisch (v0.7.6):** Panels liegen **ÜBER der Dock im gleichen Stack** –
-    die Dock wird NIEMALS ausgeblendet. Sie bleibt unten sichtbar und bedienbar.
-  - Panel-Höhe: calc(100dvh - Dock-Höhe - Bottom-Abstand - safe-area-inset-top - 20px),
-    Inhalt scrollbar, Radius an allen 4 Ecken, Schatten wie gehabt.
+- **Mobil vs. Desktop Darstellung (v0.7.7 – finalisiert):**
+  - **Kernprinzip:** Die Dock wird NIEMALS ausgeblendet – weder auf Mobil noch Desktop.
+  - Mobil: Docked-Modus mit Dock unten; Panels öffnen als große Popups ÜBER der Dock.
+  - Panel-Position: Absolut über der Dock, full-height von safe-area-top bis Dock,
+    Inhalt scrollbar, Radius an allen 4 Ecken (24px), Schatten wie gehabt.
   - Close-Button: absolut positioniert oben rechts (top 14px, right 14px).
-  - Floating Dock mobil: 26px + env(safe-area-inset-bottom), Breite: min(calc(100vw - 56px), 400px),
-    Höhe: 76px (Defaults; Nutzerwerte sollen künftig respektiert werden).
+  - **Config-Hoheit (v0.7.7):** Nutzerwerte für width, height, bottom, breakpoint
+    haben IMMER Vorrang vor mobilen Defaults. Defaults greifen NUR, wenn kein Wert gesetzt.
+    Mobile Defaults: width 336px, height 78px, bottom 28px.
+  - Animationen: Sanfte Opacity-Fade (nd-pop) statt Translate/Scale.
   - Desktop: IMMER Floating-Modus. Docked ist mobil-exklusiv.
   - Laufzeitansicht darf im Dashboard-Editor niemals als Fixed-Overlay erscheinen.
 - Design soll klar, einfach und Material-You-inspiriert sein, nicht mit vielen
