@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.4';
+const ND_VERSION = '0.7.5';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -296,11 +296,12 @@ class NavDockCard extends HTMLElement {
       .spacer { height:1px; }
       .stack { position:fixed; z-index:6; display:flex; flex-direction:column; gap:8px; pointer-events:none; transition:width .2s ease,bottom .2s ease; }
       .stack.floating{left:50%;bottom:${bottom}px;width:min(calc(100vw - 24px),var(--nd-max-width));transform:translateX(-50%)}
+      .mobile.floating{bottom:calc(${bottom}px + 8px + env(safe-area-inset-bottom));width:min(calc(100vw - 48px),var(--nd-max-width))}
       .stack.docked{left:0;right:0;bottom:0;width:100%;transform:none;gap:6px}
       .stack.preview{position:relative;z-index:0;left:auto;right:auto;bottom:auto;width:min(100%,var(--nd-max-width));transform:none;margin:8px auto;pointer-events:none}
-      .stack.mobile-sheet{position:fixed;inset:0;left:0;right:0;width:100%;height:100dvh;bottom:0;z-index:999;flex-direction:column;gap:0;background:var(--nd-surface);border-radius:18px 18px 0 0;padding:max(0,env(safe-area-inset-top)) 0 max(0,env(safe-area-inset-bottom)) 0;margin:0;transform:none;pointer-events:auto}
-      .stack.mobile-sheet .dock{display:none}
-      .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{width:100%;min-height:100%;border:0;box-shadow:none;border-radius:0;animation:none;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));overflow:auto}
+      .stack.mobile-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:99;flex-direction:column;gap:0;background:var(--nd-surface);border-radius:var(--nd-radius);width:calc(100vw - 24px);max-height:calc(100dvh - env(safe-area-inset-top) - 24px);overflow:hidden;pointer-events:auto}
+      .stack.mobile-sheet .dock{position:relative}
+      .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{width:100%;max-height:calc(100dvh - env(safe-area-inset-top) - 24px - var(--nd-height) - 20px);border:0;box-shadow:none;border-radius:0;animation:none;padding:16px 16px;overflow:auto}
       .stack.mobile-sheet.closing .compact{animation:none}
       .preview .dock,.preview .tab{pointer-events:none}
       .preview.docked .dock{border-radius:var(--nd-radius);padding-bottom:6px}
