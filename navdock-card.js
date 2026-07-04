@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.3';
+const ND_VERSION = '0.7.4';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -75,6 +75,7 @@ class NavDockCard extends HTMLElement {
     this._hass = null;
     this._positionTimer = null;
     this._previousFocusedElement = null;
+    this._justClosed = false;
     this._onLocation = () => this._render();
     this._onResize = () => {
       clearTimeout(this._resizeTimer);
@@ -83,9 +84,11 @@ class NavDockCard extends HTMLElement {
     this._onKeydown = (event) => {
       if (event.key === 'Escape' && (this._expanded || this._profileOpen)) {
         event.preventDefault();
+        this._justClosed = true;
         this._expanded = false;
         this._profileOpen = false;
         this._render();
+        setTimeout(() => { this._justClosed = false; }, 0);
         if (this._previousFocusedElement) {
           this._previousFocusedElement.focus();
           this._previousFocusedElement = null;
@@ -253,7 +256,7 @@ class NavDockCard extends HTMLElement {
     const bottom = Math.max(4, Number(this._config.bottom) || 18);
     const breakpoint = Math.max(480, Math.min(1600, Number(this._config.breakpoint) || 768));
     const isMobile = window.innerWidth < breakpoint;
-    const placement = isMobile ? (this._config.mobile_mode || 'docked') : (this._config.desktop_mode || 'floating');
+    const placement = isMobile ? (this._config.mobile_mode || 'docked') : 'floating';
     const showLabels = isMobile
       ? (this._config.mobile_show_labels ?? this._config.show_labels ?? false)
       : (this._config.desktop_show_labels ?? this._config.show_labels ?? true);
@@ -269,18 +272,17 @@ class NavDockCard extends HTMLElement {
     const shadowStyle = isDarkMode
       ? '0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24)'
       : '0 6px 20px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08)';
+    const isMobileSheet = isMobile && (this._expanded || this._profileOpen);
+    const closingClass = this._justClosed ? 'closing' : '';
     this.shadowRoot.innerHTML = `
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
-      ${!preview && (this._expanded || this._profileOpen) ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle}">
-        ${this._profileOpen ? this._profilePanelTemplate() : ''}
-        ${this._expanded && media ? this._expandedTemplate(media) : ''}
+      ${!preview && (this._expanded || this._profileOpen) && !isMobileSheet ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
+      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${isMobileSheet ? 'mobile-sheet' : ''} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''} ${closingClass}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle}">
+        ${this._profileOpen ? this._profilePanelTemplate(isMobileSheet) : ''}
+        ${this._expanded && media ? this._expandedTemplate(media, isMobileSheet) : ''}
         ${!preview && mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
-        <nav class="dock" aria-label="Dashboard Navigation">
-          ${tabs.map((tab, index) => this._tabTemplate(tab, index)).join('')}
-          ${profileEnabled ? this._profileTemplate() : ''}
-        </nav>
+        ${!isMobileSheet || (!this._expanded && !this._profileOpen) ? '<nav class="dock" aria-label="Dashboard Navigation">'+tabs.map((tab, index) => this._tabTemplate(tab, index)).join('')+(profileEnabled ? this._profileTemplate() : '')+'</nav>' : ''}
       </section>`;
 
     this._bindEvents();
@@ -296,6 +298,10 @@ class NavDockCard extends HTMLElement {
       .stack.floating{left:50%;bottom:${bottom}px;width:min(calc(100vw - 24px),var(--nd-max-width));transform:translateX(-50%)}
       .stack.docked{left:0;right:0;bottom:0;width:100%;transform:none;gap:6px}
       .stack.preview{position:relative;z-index:0;left:auto;right:auto;bottom:auto;width:min(100%,var(--nd-max-width));transform:none;margin:8px auto;pointer-events:none}
+      .stack.mobile-sheet{position:fixed;inset:0;left:0;right:0;width:100%;height:100dvh;bottom:0;z-index:999;flex-direction:column;gap:0;background:var(--nd-surface);border-radius:18px 18px 0 0;padding:max(0,env(safe-area-inset-top)) 0 max(0,env(safe-area-inset-bottom)) 0;margin:0;transform:none;pointer-events:auto}
+      .stack.mobile-sheet .dock{display:none}
+      .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{width:100%;min-height:100%;border:0;box-shadow:none;border-radius:0;animation:none;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));overflow:auto}
+      .stack.mobile-sheet.closing .compact{animation:none}
       .preview .dock,.preview .tab{pointer-events:none}
       .preview.docked .dock{border-radius:var(--nd-radius);padding-bottom:6px}
       .docked .dock{width:100%;border-radius:var(--nd-radius) var(--nd-radius) 0 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
@@ -339,10 +345,11 @@ class NavDockCard extends HTMLElement {
       .large-controls .primary { width:66px; height:66px; }
       .volume { display:grid; grid-template-columns:25px 1fr; align-items:center; gap:8px; }
       .volume ha-icon { color:var(--secondary-text-color); }
-      .media-kind{display:inline-flex;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:var(--nd-surface-soft);color:var(--nd-accent);font-size:10px;font-weight:750}.media-switcher{display:flex;align-items:center;gap:5px;margin-top:7px}.media-dot{width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:50%;background:var(--secondary-text-color);opacity:.35;cursor:pointer}.media-dot.active{width:18px;border-radius:5px;background:var(--nd-accent);opacity:1}.source-picker{display:grid;gap:7px;margin:16px 0;font-size:11px;font-weight:700;color:var(--secondary-text-color)}.source-picker select{width:100%;height:48px;padding:0 14px;border:1px solid var(--nd-border);border-radius:16px;color:var(--primary-text-color);background:var(--nd-surface-soft);font:inherit}.compact{touch-action:pan-y}
+      .media-kind{display:inline-flex;margin-bottom:5px;padding:4px 8px;border-radius:999px;background:var(--nd-surface-soft);color:var(--nd-accent);font-size:10px;font-weight:750}.media-switcher{display:flex;align-items:center;gap:5px;margin-top:7px}.media-dot{width:4px;height:4px;min-width:4px;padding:0;border:0;border-radius:50%;background:var(--secondary-text-color);opacity:.4;cursor:pointer}.media-dot.active{width:5px;opacity:.8}.source-picker{display:grid;gap:7px;margin:16px 0;font-size:11px;font-weight:700;color:var(--secondary-text-color)}.source-picker select{width:100%;height:48px;padding:0 14px;border:1px solid var(--nd-border);border-radius:16px;color:var(--primary-text-color);background:var(--nd-surface-soft);font:inherit}.compact{touch-action:pan-y}
       .profile-panel{border-radius:var(--nd-radius);padding:16px;animation:nd-sheet .25s cubic-bezier(.2,.8,.2,1);transform-origin:bottom center;max-height:min(560px,calc(100vh - 120px));overflow:auto}.profile-header{display:grid;grid-template-columns:64px 1fr 40px;gap:14px;align-items:center;margin-bottom:18px}.profile-avatar-large{width:64px;height:64px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--nd-surface-soft);flex-shrink:0}.profile-avatar-large img{width:100%;height:100%;object-fit:cover}.profile-avatar-large ha-icon{width:32px;height:32px;color:var(--nd-accent)}.profile-info{min-width:0}.profile-name{font-size:18px;font-weight:780;line-height:1.2}.profile-role{font-size:12px;color:var(--secondary-text-color);margin-top:2px;line-height:1.3}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.info-tile{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;padding:12px;border-radius:16px;background:var(--nd-surface-soft)}.info-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--nd-accent);background:var(--nd-surface);flex-shrink:0}.info-icon ha-icon{width:22px}.info-text{min-width:0}.info-label{font-size:10px;color:var(--secondary-text-color);font-weight:700;text-transform:uppercase;letter-spacing:.5px}.info-value{margin-top:3px;font-size:14px;font-weight:720;line-height:1.3}.profile-entities{display:grid;gap:9px}.profile-entity{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;width:100%;padding:11px;border:0;border-radius:14px;color:var(--primary-text-color);background:var(--nd-surface-soft);cursor:pointer;text-align:left}.profile-entity ha-icon{color:var(--nd-accent);width:20px}.entity-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entity-id{font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.entity-state{font-size:13px;font-weight:720;color:var(--nd-accent);white-space:nowrap}
       .profile-panel{width:min(calc(100vw - 24px),var(--nd-panel-width));min-height:370px;align-self:center;max-height:min(620px,calc(100vh - 120px))}
       .scrim { position:fixed; z-index:5; inset:0; width:100%; height:100%; border:0; padding:0; background:rgba(0,0,0,.16); cursor:default; animation:nd-fade .2s ease; }
+      .closing .compact, .closing .expanded, .closing .profile-panel { animation:none !important; }
       @keyframes nd-sheet { from { opacity:0; transform:translateY(18px) scale(.97); } }
       @keyframes nd-in { from { opacity:0; transform:translateY(8px); } }
       @keyframes nd-fade { from { opacity:0; } }
@@ -387,7 +394,7 @@ class NavDockCard extends HTMLElement {
     }).flat().join('|');
   }
 
-  _profilePanelTemplate() {
+  _profilePanelTemplate(isMobileSheet) {
     const { picture, userName } = this._getProfileData();
     const user = this._hass.user || {};
     const tiles = [];
@@ -399,7 +406,8 @@ class NavDockCard extends HTMLElement {
       tiles.push(this._infoTile('mdi:devices', 'Gerät', `${device} · ${window.innerWidth}×${window.innerHeight}`));
     }
     const entities = (this._config.profile_entities || []).map((id) => this._hass.states[id]).filter(Boolean);
-    return `<article class="profile-panel" aria-label="Profilinformationen"><div class="profile-header"><div class="profile-avatar-large">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</div><div class="profile-info"><div class="profile-name">${ndEsc(userName)}</div><div class="profile-role">${ndEsc(this._hass.config?.location_name || 'Home Assistant')}</div></div><button class="icon-btn" data-close-profile aria-label="Schließen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div>${tiles.length ? `<div class="info-grid">${tiles.join('')}</div>` : ''}${entities.length ? `<div class="profile-entities">${entities.map((entity) => this._profileEntityTemplate(entity)).join('')}</div>` : ''}</article>`;
+    const closeIcon = isMobileSheet ? 'mdi:close' : 'mdi:chevron-down';
+    return `<article class="profile-panel${isMobileSheet ? ' mobile-sheet' : ''}" aria-label="Profilinformationen"><div class="profile-header"><div class="profile-avatar-large">${picture ? `<img src="${ndEsc(picture)}" alt="${ndEsc(userName)}">` : '<ha-icon icon="mdi:account"></ha-icon>'}</div><div class="profile-info"><div class="profile-name">${ndEsc(userName)}</div><div class="profile-role">${ndEsc(this._hass.config?.location_name || 'Home Assistant')}</div></div><button class="icon-btn" data-close-profile aria-label="${isMobileSheet ? 'Schließen' : 'Einklappen'}"><ha-icon icon="${closeIcon}"></ha-icon></button></div>${tiles.length ? '<div class="info-grid">'+tiles.join('')+'</div>' : ''}${entities.length ? '<div class="profile-entities">'+entities.map((entity) => this._profileEntityTemplate(entity)).join('')+'</div>' : ''}</article>`;
   }
 
   _infoTile(icon, label, value) {
@@ -452,15 +460,16 @@ class NavDockCard extends HTMLElement {
     return `<button class="icon-btn primary ${large ? 'large' : ''}" data-service="toggle_playback" aria-label="Wiedergabe"><ha-icon icon="${icon}"></ha-icon></button>`;
   }
 
-  _expandedTemplate(entity) {
+  _expandedTemplate(entity, isMobileSheet) {
     const a = entity.attributes;
     const kind = this._mediaKind(entity);
     const duration = Number(a.media_duration) || 0;
     const position = this._position(entity);
     const volume = Math.round((Number(a.volume_level) || 0) * 100);
     const sources = Array.isArray(a.source_list) ? a.source_list : [];
-    return `<article class="expanded ${kind}" data-swipe-media aria-label="Erweiterter Media Player">
-      <div class="expanded-head">${this._cover(entity)}<div class="meta"><div class="media-kind">${kind === 'tv' ? 'Fernsehen' : 'Musik'}</div><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div>${this._mediaDots()}</div><button class="icon-btn" data-collapse aria-label="Einklappen"><ha-icon icon="mdi:chevron-down"></ha-icon></button></div>
+    const closeIcon = isMobileSheet ? 'mdi:close' : 'mdi:chevron-down';
+    return `<article class="expanded ${kind}${isMobileSheet ? ' mobile-sheet' : ''}" data-swipe-media aria-label="Erweiterter Media Player">
+      <div class="expanded-head">${this._cover(entity)}<div class="meta"><div class="media-kind">${kind === 'tv' ? 'Fernsehen' : 'Musik'}</div><div class="title live-title">${ndEsc(a.media_title || a.friendly_name || 'Media Player')}</div><div class="subtitle live-subtitle">${ndEsc(a.media_artist || a.media_series_title || a.app_name || a.source || '')}</div>${!isMobileSheet ? this._mediaDots() : ''}</div><button class="icon-btn" data-collapse aria-label="${isMobileSheet ? 'Schließen' : 'Einklappen'}"><ha-icon icon="${closeIcon}"></ha-icon></button></div>
       ${duration ? `<div class="timeline"><input data-seek type="range" min="0" max="${duration}" step="1" value="${position}"><div class="times"><span class="live-position">${ndTime(position)}</span><span>${ndTime(duration)}</span></div></div>` : ''}
       ${kind === 'tv' && sources.length ? `<label class="source-picker"><span>Sender / Quelle</span><select data-source>${sources.map((source) => `<option value="${ndEsc(source)}" ${source === a.source ? 'selected' : ''}>${ndEsc(source)}</option>`).join('')}</select></label>` : ''}
       <div class="large-controls"><button class="icon-btn" data-service="media_previous_track"><ha-icon icon="${kind === 'tv' ? 'mdi:chevron-left' : 'mdi:skip-previous'}"></ha-icon></button>${this._playButton(entity, true)}<button class="icon-btn" data-service="media_next_track"><ha-icon icon="${kind === 'tv' ? 'mdi:chevron-right' : 'mdi:skip-next'}"></ha-icon></button></div>
@@ -511,9 +520,25 @@ class NavDockCard extends HTMLElement {
         setTimeout(() => this._focusFirstInteractive('.expanded'), 0);
       }
     });
-    this.shadowRoot.querySelector('.scrim')?.addEventListener('click', () => { this._expanded = false; this._profileOpen = false; this._render(); });
-    this.shadowRoot.querySelector('[data-collapse]')?.addEventListener('click', () => { this._expanded = false; this._render(); });
-    this.shadowRoot.querySelector('[data-close-profile]')?.addEventListener('click', () => { this._profileOpen = false; this._render(); });
+    this.shadowRoot.querySelector('.scrim')?.addEventListener('click', () => {
+      this._justClosed = true;
+      this._expanded = false;
+      this._profileOpen = false;
+      this._render();
+      setTimeout(() => { this._justClosed = false; }, 0);
+    });
+    this.shadowRoot.querySelector('[data-collapse]')?.addEventListener('click', () => {
+      this._justClosed = true;
+      this._expanded = false;
+      this._render();
+      setTimeout(() => { this._justClosed = false; }, 0);
+    });
+    this.shadowRoot.querySelector('[data-close-profile]')?.addEventListener('click', () => {
+      this._justClosed = true;
+      this._profileOpen = false;
+      this._render();
+      setTimeout(() => { this._justClosed = false; }, 0);
+    });
     this.shadowRoot.querySelectorAll('[data-profile-entity]').forEach((button) => button.addEventListener('click', () => ndFire(this, 'hass-more-info', { entityId: button.dataset.profileEntity })));
     this.shadowRoot.querySelectorAll('[data-service]').forEach((button) => button.addEventListener('click', (event) => {
       event.stopPropagation(); this._call(button.dataset.service);

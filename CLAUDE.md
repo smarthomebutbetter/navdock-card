@@ -3,7 +3,7 @@
 **Wichtig:** Dieses Dokument ist der Projektkontext – aktuell halten.
 
 Stand: 4. Juli 2026  
-Kartenversion: `0.7.3`
+Kartenversion: `0.7.4`
 
 ## Versionierungs-Policy
 
@@ -237,12 +237,17 @@ dfe52b0 Fix theme media updates and user avatar
 ## 10. Produktentscheidungen aus dem bisherigen Austausch
 
 - Dock bleibt unten; Desktop-Seitenleiste ist derzeit nicht vorgesehen.
-- Mobil und Desktop sollen mit derselben Karte unterschiedliche Positionen
-  verwenden können.
-- Laufzeitansicht darf im Dashboard-Editor niemals als Fixed-Overlay erscheinen.
+- **Mobil vs. Desktop Darstellung (v0.7.4):**
+  - Mobil: Docked-Modus mit Dock unten; Panels öffnen als Fullscreen-Sheets
+    (100dvh, volle Breite, Radius nur oben, safe-area-aware).
+  - Desktop: IMMER Floating-Modus. Docked ist jetzt mobil-exklusiv.
+  - Laufzeitansicht darf im Dashboard-Editor niemals als Fixed-Overlay erscheinen.
 - Design soll klar, einfach und Material-You-inspiriert sein, nicht mit vielen
   freien CSS-/Farboptionen überladen werden.
 - Media- und Profilpanel sollen mehr Höhe, aber keine unnötige Breite erhalten.
+  - Auf Mobil: Vollbildsheet mit Inhalts-Scroll, Dock optional ausgeblendet.
 - Theme-Farben und Theme-Radien haben Vorrang; Tiefenwirkung muss trotzdem bei
   dunklen Hintergründen sichtbar bleiben.
 - Anfängerfreundliche Konfiguration ist wichtiger als maximale Optionszahl.
+- Karussell-Punkte (mehrere aktive Player) sind dezent: kleine Punkte (~4px),
+  zentriert in Kompaktzeile, reduzierte Deckkraft. In Großansicht nicht angezeigt.
