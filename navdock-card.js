@@ -3,7 +3,7 @@
  * No runtime dependencies and fully configurable from the visual card editor.
  */
 
-const ND_VERSION = '0.7.9';
+const ND_VERSION = '0.7.10';
 
 const ND_DEFAULT_TABS = [
   { label: 'Brief', icon: 'mdi:creation-outline', active_icon: 'mdi:creation', path: '/dashboard-home/tab-brief' },
@@ -275,6 +275,11 @@ class NavDockCard extends HTMLElement {
       : '0 6px 20px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08)';
     const dockBg = isDarkMode ? 'rgba(18,19,25,0.92)' : 'rgba(255,255,255,0.92)';
     const dockBorder = isDarkMode ? '1px solid rgba(255,255,255,0.035)' : '1px solid rgba(0,0,0,0.06)';
+    const accentElement = document.createElement('div');
+    accentElement.style.color = 'var(--primary-color,#5b67b3)';
+    document.body.appendChild(accentElement);
+    const accent = getComputedStyle(accentElement).color;
+    document.body.removeChild(accentElement);
     const dockShadow = isDarkMode
       ? '0 -6px 18px rgba(0,0,0,.18), 0 8px 22px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.025)'
       : '0 -6px 18px rgba(0,0,0,.08), 0 8px 22px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.40)';
@@ -284,7 +289,7 @@ class NavDockCard extends HTMLElement {
       <style>${this._styles(maxWidth, bottom)}</style>
       <div class="spacer" aria-hidden="true"></div>
       ${!preview && (this._expanded || this._profileOpen) && !isMobileSheet ? '<button class="scrim" aria-label="Panel schließen"></button>' : ''}
-      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${isMobileSheet ? 'mobile-sheet' : ''} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''} ${closingClass}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:var(--primary-color,#7d8fd3);--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle};--nd-dock-bg:${dockBg};--nd-dock-border:${dockBorder};--nd-dock-shadow:${dockShadow}">
+      <section class="stack ${preview ? 'preview' : ''} ${isMobile ? 'mobile' : 'desktop'} ${isMobileSheet ? 'mobile-sheet' : ''} ${placement === 'docked' ? 'docked' : 'floating'} ${showLabels ? '' : 'hide-labels'} ${this._config.shadow === false ? 'no-shadow' : ''} ${closingClass}" style="--media-offset:${mediaOffset}px;--nd-height:${height}px;--nd-radius:${radius};--nd-icon-size:${iconSize}px;--nd-label-size:${labelSize}px;--nd-accent:${accent};--nd-max-width:${maxWidth}px;--nd-panel-width:${panelWidth}px;--nd-shadow:${shadowStyle};--nd-dock-bg:${dockBg};--nd-dock-border:${dockBorder};--nd-dock-shadow:${dockShadow}">
         ${this._profileOpen ? this._profilePanelTemplate(isMobileSheet) : ''}
         ${this._expanded && media ? this._expandedTemplate(media, isMobileSheet) : ''}
         ${!preview && mediaVisible && !this._expanded && !this._profileOpen ? this._compactTemplate(media) : ''}
@@ -305,8 +310,6 @@ class NavDockCard extends HTMLElement {
       .mobile.floating{bottom:calc(${bottom}px + env(safe-area-inset-bottom));width:min(calc(100vw - 56px),var(--nd-max-width))}
       .stack.docked{left:0;right:0;bottom:0;width:100%;transform:none;gap:6px}
       .stack.preview{position:relative;z-index:0;left:auto;right:auto;bottom:auto;width:min(100%,var(--nd-max-width));transform:none;margin:8px auto;pointer-events:none}
-      .stack
-      .stack
       .stack.mobile-sheet .expanded,.stack.mobile-sheet .profile-panel{position:fixed;top:calc(env(safe-area-inset-top) + 10px);bottom:calc(${bottom}px + env(safe-area-inset-bottom) + var(--nd-height) + 8px);left:50%;transform:translateX(-50%);width:calc(100vw - 20px);max-height:none;border:1px solid var(--nd-border);box-shadow:var(--nd-shadow,0 0 0 1px rgba(255,255,255,.075),0 14px 42px rgba(0,0,0,.38),0 3px 10px rgba(0,0,0,.24));border-radius:24px;padding:16px;overflow:auto;z-index:101}
       .stack.mobile-sheet.closing .compact{animation:none}
       .preview .dock,.preview .tab{pointer-events:none}
